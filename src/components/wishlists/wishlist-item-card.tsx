@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { ExternalLink, Trash2, Check, MoreVertical, Package } from "lucide-react";
+import { ExternalLink, Trash2, Check, MoreVertical, Package, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -13,6 +13,7 @@ import {
 import { deleteItem, markItemPurchased } from "@/lib/actions/items";
 import { toast } from "sonner";
 import type { WishlistItem } from "@/lib/supabase/types";
+import { EditItemDialog } from "./edit-item-dialog";
 
 interface WishlistItemCardProps {
   item: WishlistItem;
@@ -34,6 +35,7 @@ export function WishlistItemCard({
   onUnclaim,
 }: WishlistItemCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   async function handleDelete() {
     setIsDeleting(true);
@@ -119,6 +121,10 @@ export function WishlistItemCard({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setEditDialogOpen(true)}>
+                  <Pencil className="w-4 h-4 mr-2" />
+                  Edit
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleTogglePurchased}>
                   <Check className="w-4 h-4 mr-2" />
                   {item.is_purchased ? "Mark as not purchased" : "Mark as purchased"}
@@ -172,6 +178,16 @@ export function WishlistItemCard({
           </div>
         )}
       </div>
+
+      {/* Edit dialog */}
+      {isOwner && (
+        <EditItemDialog
+          item={item}
+          wishlistId={wishlistId}
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+        />
+      )}
     </div>
   );
 }

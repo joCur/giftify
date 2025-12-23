@@ -327,7 +327,7 @@ export async function getFriendWishlists(friendId: string) {
     `
     )
     .eq("user_id", friendId)
-    .in("privacy", ["public", "friends"])
+    .in("privacy", ["friends", "selected_friends"])
     .order("created_at", { ascending: false });
 
   if (error) {

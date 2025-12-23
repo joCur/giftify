@@ -6,7 +6,7 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
-export type WishlistPrivacy = "public" | "friends" | "private";
+export type WishlistPrivacy = "friends" | "selected_friends" | "private";
 export type FriendshipStatus = "pending" | "accepted" | "declined";
 export type NotificationType =
   | "friend_request_received"
@@ -329,6 +329,42 @@ export interface Database {
           }
         ];
       };
+      wishlist_selected_friends: {
+        Row: {
+          id: string;
+          wishlist_id: string;
+          friend_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          wishlist_id: string;
+          friend_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          wishlist_id?: string;
+          friend_id?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "wishlist_selected_friends_wishlist_id_fkey";
+            columns: ["wishlist_id"];
+            isOneToOne: false;
+            referencedRelation: "wishlists";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "wishlist_selected_friends_friend_id_fkey";
+            columns: ["friend_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -383,3 +419,21 @@ export type NotificationWithActor = Notification & {
   wishlist: Pick<Wishlist, "id" | "name"> | null;
   item: Pick<WishlistItem, "id" | "title"> | null;
 };
+
+// Wishlist selected friends table types
+export interface WishlistSelectedFriend {
+  id: string;
+  wishlist_id: string;
+  friend_id: string;
+  created_at: string;
+}
+
+// Friend with selection state (for friend picker UI)
+export interface SelectableFriend {
+  friendshipId: string;
+  id: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  birthday: string | null;
+  isSelected?: boolean;
+}

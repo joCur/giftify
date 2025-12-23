@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,8 +15,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { updateWishlist, deleteWishlist } from "@/lib/actions/wishlists";
+import {
+  getFriendsWithSelectionState,
+  updateWishlistSelectedFriends,
+} from "@/lib/actions/wishlist-visibility";
 import { toast } from "sonner";
-import { Loader2, Trash2, Lock, Users, Globe, Settings, AlertTriangle } from "lucide-react";
+import { Loader2, Trash2, Lock, Users, UserCheck, Settings, AlertTriangle } from "lucide-react";
+import { FriendPickerDialog } from "./friend-picker-dialog";
 import type { Wishlist, WishlistPrivacy } from "@/lib/supabase/types";
 
 const privacyOptions: {
@@ -28,16 +33,16 @@ const privacyOptions: {
 }[] = [
   {
     value: "friends",
-    label: "Friends",
-    description: "Visible to your friends",
+    label: "All Friends",
+    description: "Visible to all friends",
     icon: <Users className="w-4 h-4" />,
     color: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30",
   },
   {
-    value: "public",
-    label: "Public",
-    description: "Anyone can view",
-    icon: <Globe className="w-4 h-4" />,
+    value: "selected_friends",
+    label: "Selected",
+    description: "Choose specific friends",
+    icon: <UserCheck className="w-4 h-4" />,
     color: "bg-blue-500/10 text-blue-600 border-blue-500/30",
   },
   {
@@ -61,7 +66,38 @@ export function WishlistSettingsSheet({
   const [isDeleting, setIsDeleting] = useState(false);
   const [privacy, setPrivacy] = useState<WishlistPrivacy>(wishlist.privacy);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
+  const [hasLoadedFriends, setHasLoadedFriends] = useState(false);
   const router = useRouter();
+
+  // Load current selected friends when dialog opens
+  const loadSelectedFriends = useCallback(async () => {
+    if (wishlist.privacy === "selected_friends") {
+      const result = await getFriendsWithSelectionState(wishlist.id);
+      if (!result.error && result.data) {
+        setSelectedFriendIds(
+          result.data.filter((f) => f.isSelected).map((f) => f.id)
+        );
+      }
+    }
+    setHasLoadedFriends(true);
+  }, [wishlist.id, wishlist.privacy]);
+
+  useEffect(() => {
+    if (open && !hasLoadedFriends) {
+      loadSelectedFriends();
+    }
+  }, [open, hasLoadedFriends, loadSelectedFriends]);
+
+  // Reset state when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setPrivacy(wishlist.privacy);
+      setSelectedFriendIds([]);
+      setHasLoadedFriends(false);
+      setShowDeleteConfirm(false);
+    }
+  }, [open, wishlist.privacy]);
 
   async function handleUpdate(formData: FormData) {
     setIsUpdating(true);
@@ -71,10 +107,25 @@ export function WishlistSettingsSheet({
 
     if (result.error) {
       toast.error(result.error);
-    } else {
-      toast.success("Wishlist updated");
-      setOpen(false);
+      setIsUpdating(false);
+      return;
     }
+
+    // If privacy is selected_friends, also save the selected friends
+    if (privacy === "selected_friends") {
+      const friendsResult = await updateWishlistSelectedFriends(
+        wishlist.id,
+        selectedFriendIds
+      );
+      if (friendsResult.error) {
+        toast.error(friendsResult.error);
+        setIsUpdating(false);
+        return;
+      }
+    }
+
+    toast.success("Wishlist updated");
+    setOpen(false);
     setIsUpdating(false);
   }
 
@@ -158,6 +209,25 @@ export function WishlistSettingsSheet({
             <p className="text-xs text-muted-foreground">
               {privacyOptions.find((o) => o.value === privacy)?.description}
             </p>
+            {/* Friend picker button for selected_friends */}
+            {privacy === "selected_friends" && (
+              <FriendPickerDialog
+                wishlistId={wishlist.id}
+                selectedFriendIds={selectedFriendIds}
+                onSelect={setSelectedFriendIds}
+              >
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full rounded-xl"
+                >
+                  <UserCheck className="w-4 h-4 mr-2" />
+                  {selectedFriendIds.length === 0
+                    ? "Choose Friends"
+                    : `${selectedFriendIds.length} ${selectedFriendIds.length === 1 ? "friend" : "friends"} selected`}
+                </Button>
+              </FriendPickerDialog>
+            )}
           </div>
 
           <DialogFooter className="pt-2">

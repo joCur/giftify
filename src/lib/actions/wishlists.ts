@@ -72,7 +72,7 @@ export async function createWishlist(formData: FormData) {
     const description = (formData.get("description") as string) || null;
     const privacy = (formData.get("privacy") as WishlistPrivacy) || "friends";
 
-    if (!["public", "friends", "private"].includes(privacy)) {
+    if (!["friends", "selected_friends", "private"].includes(privacy)) {
       return { error: "Invalid privacy setting" };
     }
 
@@ -121,7 +121,7 @@ export async function updateWishlist(id: string, formData: FormData) {
     const description = (formData.get("description") as string) || null;
     const privacy = (formData.get("privacy") as WishlistPrivacy) || "friends";
 
-    if (!["public", "friends", "private"].includes(privacy)) {
+    if (!["friends", "selected_friends", "private"].includes(privacy)) {
       return { error: "Invalid privacy setting" };
     }
 

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, Lock, Users, Globe, Gift, Sparkles, ChevronRight } from "lucide-react";
+import { Plus, Lock, Users, UserCheck, Gift, Sparkles, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getMyWishlists } from "@/lib/actions/wishlists";
 import { CreateWishlistDialog } from "@/components/wishlists/create-wishlist-dialog";
@@ -13,12 +13,12 @@ const privacyConfig: Record<WishlistPrivacy, { icon: React.ReactNode; label: str
   },
   friends: {
     icon: <Users className="w-3 h-3" />,
-    label: "Friends",
+    label: "All Friends",
     color: "bg-emerald-500/10 text-emerald-600",
   },
-  public: {
-    icon: <Globe className="w-3 h-3" />,
-    label: "Public",
+  selected_friends: {
+    icon: <UserCheck className="w-3 h-3" />,
+    label: "Selected",
     color: "bg-blue-500/10 text-blue-600",
   },
 };

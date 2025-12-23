@@ -1,4 +1,4 @@
-import { Lock, Users, Globe } from "lucide-react";
+import { Lock, Users, UserCheck } from "lucide-react";
 import type { WishlistPrivacy } from "@/lib/supabase/types";
 
 export const PRIVACY_OPTIONS: {
@@ -14,10 +14,10 @@ export const PRIVACY_OPTIONS: {
     icon: Users,
   },
   {
-    value: "public",
-    label: "Public",
-    description: "Same as friends (all friends can see)",
-    icon: Globe,
+    value: "selected_friends",
+    label: "Selected Friends",
+    description: "Choose specific friends who can see",
+    icon: UserCheck,
   },
   {
     value: "private",
@@ -32,6 +32,6 @@ export const PRIVACY_CONFIG: Record<
   { label: string; icon: typeof Lock }
 > = {
   private: { label: "Private", icon: Lock },
-  friends: { label: "Friends", icon: Users },
-  public: { label: "All friends", icon: Globe },
+  friends: { label: "All Friends", icon: Users },
+  selected_friends: { label: "Selected Friends", icon: UserCheck },
 };

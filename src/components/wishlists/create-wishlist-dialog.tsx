@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createWishlist } from "@/lib/actions/wishlists";
 import { toast } from "sonner";
-import { Loader2, Lock, Users, Globe, Gift, Sparkles, Check } from "lucide-react";
+import { Loader2, Lock, Users, UserCheck, Gift, Sparkles, Check } from "lucide-react";
 import type { WishlistPrivacy } from "@/lib/supabase/types";
 
 const privacyOptions: {
@@ -32,10 +32,10 @@ const privacyOptions: {
     color: "from-emerald-400 to-teal-500",
   },
   {
-    value: "public",
-    label: "Public",
-    description: "Same as friends (all friends can see)",
-    icon: <Globe className="w-5 h-5" />,
+    value: "selected_friends",
+    label: "Selected Friends",
+    description: "Choose specific friends",
+    icon: <UserCheck className="w-5 h-5" />,
     color: "from-blue-400 to-indigo-500",
   },
   {
@@ -170,6 +170,11 @@ export function CreateWishlistDialog({ children }: { children: React.ReactNode }
                   );
                 })}
               </div>
+              {privacy === "selected_friends" && (
+                <p className="text-xs text-muted-foreground p-3 rounded-lg bg-blue-500/5 border border-blue-500/20">
+                  You can choose specific friends after creating the wishlist
+                </p>
+              )}
             </div>
           </div>
 

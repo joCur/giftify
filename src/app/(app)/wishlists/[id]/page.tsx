@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { ArrowLeft, Plus, Settings, Gift, Lock, Users, Globe, Sparkles } from "lucide-react";
+import { ArrowLeft, Plus, Settings, Gift, Lock, Users, UserCheck, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { getWishlist } from "@/lib/actions/wishlists";
@@ -20,12 +20,12 @@ const privacyConfig: Record<
   },
   friends: {
     icon: <Users className="w-3 h-3" />,
-    label: "Friends",
+    label: "All Friends",
     color: "bg-emerald-500/10 text-emerald-600",
   },
-  public: {
-    icon: <Globe className="w-3 h-3" />,
-    label: "Public",
+  selected_friends: {
+    icon: <UserCheck className="w-3 h-3" />,
+    label: "Selected Friends",
     color: "bg-blue-500/10 text-blue-600",
   },
 };

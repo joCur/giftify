@@ -150,6 +150,7 @@ export type Database = {
           is_read: boolean
           item_id: string | null
           message: string
+          split_claim_id: string | null
           title: string
           type: Database["public"]["Enums"]["notification_type"]
           user_id: string
@@ -163,6 +164,7 @@ export type Database = {
           is_read?: boolean
           item_id?: string | null
           message: string
+          split_claim_id?: string | null
           title: string
           type: Database["public"]["Enums"]["notification_type"]
           user_id: string
@@ -176,6 +178,7 @@ export type Database = {
           is_read?: boolean
           item_id?: string | null
           message?: string
+          split_claim_id?: string | null
           title?: string
           type?: Database["public"]["Enums"]["notification_type"]
           user_id?: string
@@ -215,6 +218,13 @@ export type Database = {
             columns: ["wishlist_id"]
             isOneToOne: false
             referencedRelation: "wishlists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_split_claim_id_fkey"
+            columns: ["split_claim_id"]
+            isOneToOne: false
+            referencedRelation: "split_claims"
             referencedColumns: ["id"]
           },
         ]
@@ -491,6 +501,11 @@ export type Database = {
         | "birthday_reminder"
         | "item_added"
         | "wishlist_created"
+        | "split_initiated"
+        | "split_joined"
+        | "split_left"
+        | "split_confirmed"
+        | "split_cancelled"
       split_claim_status: "pending" | "confirmed"
       wishlist_privacy: "public" | "friends" | "private" | "selected_friends"
     }
@@ -630,6 +645,11 @@ export const Constants = {
         "birthday_reminder",
         "item_added",
         "wishlist_created",
+        "split_initiated",
+        "split_joined",
+        "split_left",
+        "split_confirmed",
+        "split_cancelled",
       ],
       split_claim_status: ["pending", "confirmed"],
       wishlist_privacy: ["public", "friends", "private", "selected_friends"],
@@ -677,7 +697,7 @@ export type NotificationPreferences =
 // Notification with related data (actor profile for display)
 export type NotificationWithActor = Notification & {
   actor: Pick<Profile, "id" | "display_name" | "avatar_url"> | null;
-  wishlist: Pick<Wishlist, "id" | "name"> | null;
+  wishlist: Pick<Wishlist, "id" | "name" | "user_id"> | null;
   item: Pick<WishlistItem, "id" | "title"> | null;
 };
 

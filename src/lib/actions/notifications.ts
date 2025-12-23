@@ -24,7 +24,7 @@ export async function getNotifications(
       `
       *,
       actor:profiles!notifications_actor_id_fkey(id, display_name, avatar_url),
-      wishlist:wishlists(id, name),
+      wishlist:wishlists(id, name, user_id),
       item:wishlist_items(id, title)
     `
     )

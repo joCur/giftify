@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
-import { Bell, Gift, Users, UserPlus, Cake, Package, Check } from "lucide-react";
+import { Bell, Gift, Users, UserPlus, Cake, Package, Check, Split, UserMinus, CircleCheck, CircleX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -29,6 +29,16 @@ function getNotificationIcon(type: NotificationType) {
       return <Package className="h-5 w-5 text-blue-500" />;
     case "wishlist_created":
       return <Gift className="h-5 w-5 text-purple-500" />;
+    case "split_initiated":
+      return <Split className="h-5 w-5 text-amber-500" />;
+    case "split_joined":
+      return <UserPlus className="h-5 w-5 text-amber-500" />;
+    case "split_left":
+      return <UserMinus className="h-5 w-5 text-orange-500" />;
+    case "split_confirmed":
+      return <CircleCheck className="h-5 w-5 text-green-500" />;
+    case "split_cancelled":
+      return <CircleX className="h-5 w-5 text-red-500" />;
     default:
       return <Bell className="h-5 w-5" />;
   }
@@ -48,6 +58,18 @@ function getNotificationLink(notification: NotificationWithActor): string {
         return `/friends/${notification.actor_id}/wishlists/${notification.wishlist_id}`;
       }
       return notification.actor_id ? `/friends/${notification.actor_id}` : "/friends";
+    case "split_initiated":
+    case "split_joined":
+    case "split_left":
+    case "split_confirmed":
+    case "split_cancelled":
+      // Link to the wishlist with item anchor for direct navigation
+      // Use wishlist owner ID (not actor_id, which is the person who performed the action)
+      if (notification.wishlist?.user_id && notification.wishlist_id) {
+        const base = `/friends/${notification.wishlist.user_id}/wishlists/${notification.wishlist_id}`;
+        return notification.item_id ? `${base}#item-${notification.item_id}` : base;
+      }
+      return "/friends";
     default:
       return "/dashboard";
   }

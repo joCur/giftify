@@ -282,3 +282,107 @@ ON CONFLICT (user_id) DO NOTHING;
 
 -- Enable realtime for the notifications table
 ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
+
+-- ============================================
+-- BIRTHDAY REMINDER CRON JOB (pg_cron)
+-- ============================================
+
+-- Enable pg_cron extension (requires superuser, available on Supabase Pro+)
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+
+-- Grant usage to postgres role
+GRANT USAGE ON SCHEMA cron TO postgres;
+
+-- Function to send birthday reminders
+CREATE OR REPLACE FUNCTION send_birthday_reminders()
+RETURNS void AS $$
+DECLARE
+  pref_record RECORD;
+  friend_record RECORD;
+  target_date DATE;
+  birthday_this_year DATE;
+  days_until INTEGER;
+  notification_message TEXT;
+BEGIN
+  -- Loop through all users with birthday notifications enabled
+  FOR pref_record IN
+    SELECT user_id, birthday_reminder_days
+    FROM notification_preferences
+    WHERE birthday_reminder_days > 0
+  LOOP
+    -- Calculate target date (today + reminder days)
+    target_date := CURRENT_DATE + pref_record.birthday_reminder_days;
+
+    -- Find friends with birthdays on the target date
+    FOR friend_record IN
+      SELECT
+        p.id as friend_id,
+        p.display_name as friend_name,
+        p.birthday as friend_birthday
+      FROM friendships f
+      JOIN profiles p ON (
+        CASE
+          WHEN f.requester_id = pref_record.user_id THEN f.addressee_id
+          ELSE f.requester_id
+        END = p.id
+      )
+      WHERE f.status = 'accepted'
+      AND (f.requester_id = pref_record.user_id OR f.addressee_id = pref_record.user_id)
+      AND p.birthday IS NOT NULL
+    LOOP
+      -- Calculate birthday this year
+      birthday_this_year := make_date(
+        EXTRACT(YEAR FROM CURRENT_DATE)::INTEGER,
+        EXTRACT(MONTH FROM friend_record.friend_birthday)::INTEGER,
+        EXTRACT(DAY FROM friend_record.friend_birthday)::INTEGER
+      );
+
+      -- If birthday already passed this year, check next year
+      IF birthday_this_year < CURRENT_DATE THEN
+        birthday_this_year := birthday_this_year + INTERVAL '1 year';
+      END IF;
+
+      -- Check if birthday matches target date
+      IF birthday_this_year = target_date THEN
+        -- Check if we already sent a notification for this friend's birthday this year
+        IF NOT EXISTS (
+          SELECT 1 FROM notifications
+          WHERE user_id = pref_record.user_id
+          AND type = 'birthday_reminder'
+          AND actor_id = friend_record.friend_id
+          AND created_at >= date_trunc('year', CURRENT_DATE)
+        ) THEN
+          -- Calculate days until birthday
+          days_until := pref_record.birthday_reminder_days;
+
+          -- Build notification message
+          IF days_until = 0 THEN
+            notification_message := 'Today is ' || COALESCE(friend_record.friend_name, 'A friend') || '''s birthday!';
+          ELSIF days_until = 1 THEN
+            notification_message := COALESCE(friend_record.friend_name, 'A friend') || '''s birthday is tomorrow!';
+          ELSE
+            notification_message := COALESCE(friend_record.friend_name, 'A friend') || '''s birthday is in ' || days_until || ' days';
+          END IF;
+
+          -- Insert birthday reminder notification
+          INSERT INTO notifications (user_id, type, title, message, actor_id)
+          VALUES (
+            pref_record.user_id,
+            'birthday_reminder',
+            'Birthday Reminder',
+            notification_message,
+            friend_record.friend_id
+          );
+        END IF;
+      END IF;
+    END LOOP;
+  END LOOP;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Schedule the birthday reminder job to run daily at 8:00 AM UTC
+SELECT cron.schedule(
+  'send-birthday-reminders',  -- job name
+  '0 8 * * *',                -- cron expression: 8:00 AM UTC daily
+  'SELECT send_birthday_reminders()'
+);

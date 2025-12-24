@@ -151,15 +151,17 @@ export function ClaimedItemsSection() {
                         </p>
                       )}
                     </div>
-                    <a
-                      href={item.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="relative z-10 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-muted rounded-lg"
-                    >
-                      <ExternalLink className="w-4 h-4 text-muted-foreground hover:text-primary" />
-                    </a>
+                    {item.url && (
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="relative z-10 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-muted rounded-lg"
+                      >
+                        <ExternalLink className="w-4 h-4 text-muted-foreground hover:text-primary" />
+                      </a>
+                    )}
                   </div>
                 ))}
               </div>

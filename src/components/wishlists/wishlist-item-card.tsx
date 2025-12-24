@@ -98,16 +98,18 @@ export function WishlistItemCard({
 
         {/* Action buttons */}
         <div className="absolute top-3 right-3 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-          <Button
-            variant="secondary"
-            size="icon"
-            className="h-8 w-8 rounded-lg bg-background/90 backdrop-blur-sm shadow-sm hover:bg-background"
-            asChild
-          >
-            <a href={item.url} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="w-4 h-4" />
-            </a>
-          </Button>
+          {item.url && (
+            <Button
+              variant="secondary"
+              size="icon"
+              className="h-8 w-8 rounded-lg bg-background/90 backdrop-blur-sm shadow-sm hover:bg-background"
+              asChild
+            >
+              <a href={item.url} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="w-4 h-4" />
+              </a>
+            </Button>
+          )}
           {isOwner && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

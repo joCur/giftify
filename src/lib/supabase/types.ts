@@ -207,6 +207,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "notifications_split_claim_id_fkey"
+            columns: ["split_claim_id"]
+            isOneToOne: false
+            referencedRelation: "split_claims"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "notifications_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
@@ -218,13 +225,6 @@ export type Database = {
             columns: ["wishlist_id"]
             isOneToOne: false
             referencedRelation: "wishlists"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "notifications_split_claim_id_fkey"
-            columns: ["split_claim_id"]
-            isOneToOne: false
-            referencedRelation: "split_claims"
             referencedColumns: ["id"]
           },
         ]
@@ -352,7 +352,7 @@ export type Database = {
           price: string | null
           title: string
           updated_at: string
-          url: string
+          url: string | null
           wishlist_id: string
         }
         Insert: {
@@ -366,7 +366,7 @@ export type Database = {
           price?: string | null
           title: string
           updated_at?: string
-          url: string
+          url?: string | null
           wishlist_id: string
         }
         Update: {
@@ -380,7 +380,7 @@ export type Database = {
           price?: string | null
           title?: string
           updated_at?: string
-          url?: string
+          url?: string | null
           wishlist_id?: string
         }
         Relationships: [
@@ -480,6 +480,15 @@ export type Database = {
         Args: { viewer_id: string; wishlist_id: string }
         Returns: boolean
       }
+      get_split_claim_item_info: {
+        Args: { p_item_id: string }
+        Returns: {
+          item_title: string
+          wishlist_id: string
+          wishlist_name: string
+          wishlist_owner_id: string
+        }[]
+      }
       notify_friends: {
         Args: {
           p_item_id?: string
@@ -487,6 +496,19 @@ export type Database = {
           p_title: string
           p_type: Database["public"]["Enums"]["notification_type"]
           p_user_id: string
+          p_wishlist_id?: string
+        }
+        Returns: undefined
+      }
+      notify_split_participants: {
+        Args: {
+          p_actor_id: string
+          p_exclude_user_id?: string
+          p_item_id?: string
+          p_message: string
+          p_split_claim_id: string
+          p_title: string
+          p_type: Database["public"]["Enums"]["notification_type"]
           p_wishlist_id?: string
         }
         Returns: undefined
@@ -738,3 +760,4 @@ export interface SplitClaimWithParticipants {
     user: Pick<Profile, "id" | "display_name"> | null;
   }>;
 }
+

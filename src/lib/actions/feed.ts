@@ -226,7 +226,7 @@ export async function getMyClaimedItems(): Promise<ClaimedItemGroup[]> {
       image_url: string | null;
       price: string | null;
       currency: string | null;
-      url: string;
+      url: string | null;
       wishlist_id: string;
     };
     const wishlist = wishlistsMap.get(item.wishlist_id);

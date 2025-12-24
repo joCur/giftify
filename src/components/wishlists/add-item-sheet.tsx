@@ -16,7 +16,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { fetchLinkMetadata, addItem } from "@/lib/actions/items";
 import { toast } from "sonner";
-import { Loader2, Link as LinkIcon, Sparkles, Package } from "lucide-react";
+import {
+  Loader2,
+  Link as LinkIcon,
+  Sparkles,
+  Package,
+  PenLine,
+} from "lucide-react";
+import { ItemFormFields, type ItemFormValues } from "./item-form-fields";
+
+type AddItemMode = "url-entry" | "url-fetched" | "manual-entry";
 
 interface LinkMetadata {
   title: string;
@@ -39,6 +48,7 @@ export function AddItemSheet({
   const [isFetching, setIsFetching] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [metadata, setMetadata] = useState<LinkMetadata | null>(null);
+  const [mode, setMode] = useState<AddItemMode>("url-entry");
 
   async function handleFetchMetadata() {
     if (!url.trim()) {
@@ -71,19 +81,12 @@ export function AddItemSheet({
     }
 
     setMetadata(result);
+    setMode("url-fetched");
     setIsFetching(false);
   }
 
   async function handleAddItem(formData: FormData) {
-    if (!metadata) return;
-
     setIsAdding(true);
-    formData.set("url", metadata.url || url);
-    formData.set("title", formData.get("title") as string || metadata.title);
-    formData.set("description", metadata.description || "");
-    formData.set("image_url", metadata.image_url || "");
-    formData.set("price", metadata.price || "");
-    formData.set("currency", metadata.currency || "");
 
     const result = await addItem(wishlistId, formData);
 
@@ -94,31 +97,59 @@ export function AddItemSheet({
     }
 
     toast.success("Item added to wishlist!");
-    setOpen(false);
-    setUrl("");
+    handleClose();
+  }
+
+  function handleManualEntry() {
+    setMode("manual-entry");
     setMetadata(null);
-    setIsAdding(false);
   }
 
   function handleReset() {
     setUrl("");
     setMetadata(null);
+    setMode("url-entry");
   }
+
+  function handleClose() {
+    setOpen(false);
+    setUrl("");
+    setMetadata(null);
+    setMode("url-entry");
+    setIsAdding(false);
+  }
+
+  // Prepare default values for form fields
+  const formDefaults: Partial<ItemFormValues> =
+    mode === "url-fetched" && metadata
+      ? {
+          url: metadata.url,
+          title: metadata.title,
+          description: metadata.description,
+          image_url: metadata.image_url,
+          price: metadata.price,
+          currency: metadata.currency,
+        }
+      : {};
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader className="px-6">
           <DialogTitle className="font-[family-name:var(--font-outfit)]">
             Add Item
           </DialogTitle>
           <DialogDescription>
-            Paste a link to automatically fetch product details.
+            {mode === "url-entry"
+              ? "Paste a link to automatically fetch product details, or enter manually."
+              : mode === "url-fetched"
+                ? "Review and edit the details below."
+                : "Enter the item details manually."}
           </DialogDescription>
         </DialogHeader>
 
-        {!metadata ? (
+        {mode === "url-entry" ? (
           <div className="px-6 pb-6 space-y-4">
             <div className="space-y-3">
               <div className="flex items-center gap-2">
@@ -160,67 +191,77 @@ export function AddItemSheet({
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground pl-1">
-                We&apos;ll automatically extract the product name, image, and price.
+                We&apos;ll automatically extract the product name, image, and
+                price.
               </p>
             </div>
+
+            {/* Divider */}
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-border/50" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Or
+                </span>
+              </div>
+            </div>
+
+            {/* Manual entry button */}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleManualEntry}
+              disabled={isFetching}
+              className="w-full rounded-xl"
+            >
+              <PenLine className="w-4 h-4 mr-2" />
+              Enter manually
+            </Button>
           </div>
         ) : (
           <form action={handleAddItem} className="px-6 pb-6 space-y-5">
-            {/* Preview card */}
-            <div className="flex gap-4 p-4 rounded-xl bg-muted/50 border border-border/50">
-              <div className="relative w-20 h-20 rounded-lg overflow-hidden bg-gradient-to-br from-muted to-muted/50 shrink-0">
-                {metadata.image_url ? (
-                  <Image
-                    src={metadata.image_url}
-                    alt={metadata.title}
-                    fill
-                    className="object-cover"
-                    sizes="80px"
-                  />
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Package className="w-8 h-8 text-muted-foreground/30" />
-                  </div>
-                )}
+            {/* Preview card - only show when we have fetched metadata with an image */}
+            {mode === "url-fetched" && metadata && (
+              <div className="flex gap-4 p-4 rounded-xl bg-muted/50 border border-border/50">
+                <div className="relative w-20 h-20 rounded-lg overflow-hidden bg-gradient-to-br from-muted to-muted/50 shrink-0">
+                  {metadata.image_url ? (
+                    <Image
+                      src={metadata.image_url}
+                      alt={metadata.title}
+                      fill
+                      className="object-cover"
+                      sizes="80px"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Package className="w-8 h-8 text-muted-foreground/30" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium line-clamp-2">{metadata.title}</p>
+                  {metadata.price && (
+                    <p className="text-sm text-primary font-medium mt-1">
+                      {metadata.currency} {metadata.price}
+                    </p>
+                  )}
+                  {metadata.url && (
+                    <p className="text-xs text-muted-foreground mt-1 truncate">
+                      {new URL(metadata.url).hostname}
+                    </p>
+                  )}
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium line-clamp-2">{metadata.title}</p>
-                {metadata.price && (
-                  <p className="text-sm text-primary font-medium mt-1">
-                    {metadata.currency} {metadata.price}
-                  </p>
-                )}
-              </div>
-            </div>
+            )}
 
-            {/* Title field */}
-            <div className="space-y-2">
-              <Label htmlFor="title" className="text-sm font-medium">
-                Title
-              </Label>
-              <Input
-                id="title"
-                name="title"
-                defaultValue={metadata.title}
-                required
-                disabled={isAdding}
-                className="h-11 rounded-xl bg-muted/50 border-border/50 focus:bg-background transition-colors"
-              />
-            </div>
-
-            {/* Notes field */}
-            <div className="space-y-2">
-              <Label htmlFor="notes" className="text-sm font-medium">
-                Personal Notes <span className="text-muted-foreground font-normal">(optional)</span>
-              </Label>
-              <Input
-                id="notes"
-                name="notes"
-                placeholder="Size, color preference, etc."
-                disabled={isAdding}
-                className="h-11 rounded-xl bg-muted/50 border-border/50 focus:bg-background transition-colors"
-              />
-            </div>
+            {/* Shared form fields */}
+            <ItemFormFields
+              defaultValues={formDefaults}
+              disabled={isAdding}
+              showUrlField={mode === "manual-entry"}
+            />
 
             <DialogFooter className="gap-2 sm:gap-2 pt-2">
               <Button
@@ -230,7 +271,7 @@ export function AddItemSheet({
                 disabled={isAdding}
                 className="rounded-xl"
               >
-                Change URL
+                {mode === "manual-entry" ? "Back" : "Change URL"}
               </Button>
               <Button
                 type="submit"

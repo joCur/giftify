@@ -10,12 +10,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { updateItem } from "@/lib/actions/items";
 import { toast } from "sonner";
 import { Loader2, Pencil } from "lucide-react";
 import type { WishlistItem } from "@/lib/supabase/types";
+import { ItemFormFields } from "./item-form-fields";
 
 interface EditItemDialogProps {
   item: WishlistItem;
@@ -48,7 +47,7 @@ export function EditItemDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader className="px-6">
           <DialogTitle className="font-[family-name:var(--font-outfit)] flex items-center gap-2">
             <Pencil className="w-5 h-5" />
@@ -58,60 +57,18 @@ export function EditItemDialog({
         </DialogHeader>
 
         <form action={handleUpdate} className="px-6 pb-6 space-y-5">
-          {/* Title field */}
-          <div className="space-y-2">
-            <Label htmlFor="title" className="text-sm font-medium">
-              Title
-            </Label>
-            <Input
-              id="title"
-              name="title"
-              defaultValue={item.title}
-              required
-              disabled={isUpdating}
-              className="h-11 rounded-xl bg-muted/50 border-border/50 focus:bg-background transition-colors"
-            />
-          </div>
-
-          {/* Price field */}
-          <div className="space-y-2">
-            <Label htmlFor="price" className="text-sm font-medium">
-              Price <span className="text-muted-foreground font-normal">(optional)</span>
-            </Label>
-            <div className="flex gap-2">
-              <Input
-                id="currency"
-                name="currency"
-                defaultValue={item.currency || ""}
-                placeholder="$"
-                disabled={isUpdating}
-                className="h-11 w-20 rounded-xl bg-muted/50 border-border/50 focus:bg-background transition-colors"
-              />
-              <Input
-                id="price"
-                name="price"
-                defaultValue={item.price || ""}
-                placeholder="0.00"
-                disabled={isUpdating}
-                className="h-11 flex-1 rounded-xl bg-muted/50 border-border/50 focus:bg-background transition-colors"
-              />
-            </div>
-          </div>
-
-          {/* Notes field */}
-          <div className="space-y-2">
-            <Label htmlFor="notes" className="text-sm font-medium">
-              Personal Notes <span className="text-muted-foreground font-normal">(optional)</span>
-            </Label>
-            <Input
-              id="notes"
-              name="notes"
-              defaultValue={item.notes || ""}
-              placeholder="Size, color preference, etc."
-              disabled={isUpdating}
-              className="h-11 rounded-xl bg-muted/50 border-border/50 focus:bg-background transition-colors"
-            />
-          </div>
+          <ItemFormFields
+            defaultValues={{
+              title: item.title,
+              description: item.description,
+              image_url: item.image_url,
+              price: item.price,
+              currency: item.currency,
+              notes: item.notes,
+            }}
+            disabled={isUpdating}
+            showUrlField={false}
+          />
 
           <DialogFooter className="gap-2 sm:gap-2 pt-2">
             <Button

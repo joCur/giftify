@@ -67,28 +67,25 @@ export async function addItem(wishlistId: string, formData: FormData) {
       return { error: "Not authorized" };
     }
 
-    const url = formData.get("url") as string;
+    const url = (formData.get("url") as string) || null;
     const title = formData.get("title") as string;
 
-    if (!url || !url.trim()) {
-      return { error: "URL is required" };
-    }
     if (!title || !title.trim()) {
       return { error: "Title is required" };
     }
 
-    const description = (formData.get("description") as string) || null;
-    const imageUrl = (formData.get("image_url") as string) || null;
-    const price = (formData.get("price") as string) || null;
-    const currency = (formData.get("currency") as string) || null;
-    const notes = (formData.get("notes") as string) || null;
+    const description = formData.get("description") as string | null;
+    const imageUrl = formData.get("image_url") as string | null;
+    const price = formData.get("price") as string | null;
+    const currency = formData.get("currency") as string | null;
+    const notes = formData.get("notes") as string | null;
 
     const { error } = await supabase.from("wishlist_items").insert({
       wishlist_id: wishlistId,
-      url: url.trim(),
+      url: url?.trim() || null,
       title: title.trim(),
       description: description?.trim() || null,
-      image_url: imageUrl,
+      image_url: imageUrl?.trim() || null,
       price: price?.trim() || null,
       currency: currency?.trim() || null,
       notes: notes?.trim() || null,
@@ -129,16 +126,18 @@ export async function updateItem(
       return { error: "Title is required" };
     }
 
-    const description = (formData.get("description") as string) || null;
-    const price = (formData.get("price") as string) || null;
-    const currency = (formData.get("currency") as string) || null;
-    const notes = (formData.get("notes") as string) || null;
+    const description = formData.get("description") as string | null;
+    const imageUrl = formData.get("image_url") as string | null;
+    const price = formData.get("price") as string | null;
+    const currency = formData.get("currency") as string | null;
+    const notes = formData.get("notes") as string | null;
 
     const { error } = await supabase
       .from("wishlist_items")
       .update({
         title: title.trim(),
         description: description?.trim() || null,
+        image_url: imageUrl?.trim() || null,
         price: price?.trim() || null,
         currency: currency?.trim() || null,
         notes: notes?.trim() || null,

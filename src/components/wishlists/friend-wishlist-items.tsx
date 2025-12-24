@@ -434,22 +434,24 @@ export function FriendWishlistItems({
                   )}
 
                   {/* External link button */}
-                  <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button
-                      variant="secondary"
-                      size="icon"
-                      className="h-9 w-9 rounded-xl bg-card/95 backdrop-blur-sm shadow-md hover:bg-card border border-border/30"
-                      asChild
-                    >
-                      <a
-                        href={item.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                  {item.url && (
+                    <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="h-9 w-9 rounded-xl bg-card/95 backdrop-blur-sm shadow-md hover:bg-card border border-border/30"
+                        asChild
                       >
-                        <ExternalLink className="w-4 h-4" />
-                      </a>
-                    </Button>
-                  </div>
+                        <a
+                          href={item.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
+                      </Button>
+                    </div>
+                  )}
 
                   {/* Split status ribbon */}
                   {splitClaim && !splitConfirmed && (

@@ -92,15 +92,17 @@ export function FeedCard({ item }: FeedCardProps) {
         )}
 
         {/* External link - positioned outside any Link */}
-        <a
-          href={item.item.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity z-20 h-9 w-9 rounded-xl bg-card/95 backdrop-blur-sm shadow-md hover:bg-card border border-border/30 flex items-center justify-center"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <ExternalLink className="w-4 h-4" />
-        </a>
+        {item.item.url && (
+          <a
+            href={item.item.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity z-20 h-9 w-9 rounded-xl bg-card/95 backdrop-blur-sm shadow-md hover:bg-card border border-border/30 flex items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ExternalLink className="w-4 h-4" />
+          </a>
+        )}
 
         {/* Split claim badge */}
         {item.has_split_claim && (

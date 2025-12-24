@@ -23,7 +23,7 @@ export interface FriendItemActivity extends BaseFeedItem {
     image_url: string | null;
     price: string | null;
     currency: string | null;
-    url: string;
+    url: string | null;
   };
   wishlist: {
     id: string;
@@ -72,7 +72,7 @@ export interface ClaimedItem {
   image_url: string | null;
   price: string | null;
   currency: string | null;
-  url: string;
+  url: string | null;
   claimed_at: string;
   wishlist_id: string;
   wishlist_name: string;

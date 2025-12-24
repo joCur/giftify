@@ -77,5 +77,6 @@ export async function getProfile() {
     .eq("id", user.id)
     .single();
 
-  return profile;
+  // Include email from auth.users for Gravatar support
+  return profile ? { ...profile, email: user.email } : null;
 }

@@ -664,6 +664,7 @@ export type NotificationType = Database["public"]["Enums"]["notification_type"];
 export type SplitClaimStatus = Database["public"]["Enums"]["split_claim_status"];
 
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"];
+export type ProfileWithEmail = Profile & { email?: string };
 export type Wishlist = Database["public"]["Tables"]["wishlists"]["Row"];
 export type WishlistItem = Database["public"]["Tables"]["wishlist_items"]["Row"];
 export type Friendship = Database["public"]["Tables"]["friendships"]["Row"];

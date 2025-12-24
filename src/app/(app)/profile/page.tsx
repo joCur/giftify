@@ -1,9 +1,9 @@
 import { getProfile, signOut } from "@/lib/supabase/auth";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { LogOut, Settings, Calendar, Sparkles, Bell } from "lucide-react";
 import { ProfileForm } from "@/components/profile/profile-form";
 import { NotificationPreferences } from "@/components/notifications/notification-preferences";
+import { AvatarUploadDialog } from "@/components/profile/avatar-upload-dialog";
 import { format } from "date-fns";
 
 export default async function ProfilePage() {
@@ -37,16 +37,13 @@ export default async function ProfilePage() {
           {/* Profile Overview Card */}
           <div className="bg-card border border-border/50 rounded-2xl p-6 lg:p-8">
             <div className="flex flex-col items-center text-center">
-              {/* Avatar with gradient background */}
+              {/* Avatar with edit capability */}
               <div className="relative mb-6">
-                <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center p-1">
-                  <Avatar className="h-full w-full rounded-xl">
-                    <AvatarImage src={profile?.avatar_url || undefined} className="rounded-xl" />
-                    <AvatarFallback className="rounded-xl bg-gradient-to-br from-primary/30 to-primary/10 text-2xl font-semibold">
-                      {initials}
-                    </AvatarFallback>
-                  </Avatar>
-                </div>
+                <AvatarUploadDialog
+                  avatarUrl={profile?.avatar_url}
+                  email={profile?.email}
+                  displayName={profile?.display_name}
+                />
                 <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/25">
                   <Sparkles className="w-4 h-4 text-white" />
                 </div>

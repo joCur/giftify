@@ -4,9 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Gift, Users, User } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { NotificationBell } from "@/components/notifications/notification-bell";
-import type { Profile } from "@/lib/supabase/types";
+import type { ProfileWithEmail } from "@/lib/supabase/types";
 
 const navItems = [
   { href: "/dashboard", label: "My Wishlists", icon: Gift },
@@ -15,21 +15,12 @@ const navItems = [
 ];
 
 interface SidebarProps {
-  profile: Profile | null;
+  profile: ProfileWithEmail | null;
   userId: string;
 }
 
 export function Sidebar({ profile, userId }: SidebarProps) {
   const pathname = usePathname();
-
-  const initials = profile?.display_name
-    ? profile.display_name
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .toUpperCase()
-        .slice(0, 2)
-    : "U";
 
   return (
     <aside className="hidden lg:flex flex-col w-64 border-r border-border/50 bg-card/50 h-screen sticky top-0">
@@ -76,12 +67,14 @@ export function Sidebar({ profile, userId }: SidebarProps) {
           href="/profile"
           className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors"
         >
-          <Avatar className="h-10 w-10 ring-2 ring-border">
-            <AvatarImage src={profile?.avatar_url || undefined} />
-            <AvatarFallback className="text-sm font-medium bg-secondary text-secondary-foreground">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
+          <UserAvatar
+            avatarUrl={profile?.avatar_url}
+            email={profile?.email}
+            displayName={profile?.display_name}
+            size="md"
+            className="ring-2 ring-border"
+            fallbackClassName="bg-secondary text-secondary-foreground"
+          />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium truncate">
               {profile?.display_name || "User"}

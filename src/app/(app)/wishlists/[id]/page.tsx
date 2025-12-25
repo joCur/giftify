@@ -90,7 +90,7 @@ export default async function WishlistPage({
       <div className="flex flex-col gap-6">
         {/* Back button */}
         <Link
-          href="/dashboard"
+          href="/wishlists"
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-fit group"
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />

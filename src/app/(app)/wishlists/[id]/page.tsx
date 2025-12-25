@@ -3,6 +3,7 @@ import { ArrowLeft, Plus, Settings, Gift, Lock, Users, UserCheck, Sparkles } fro
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { getWishlist } from "@/lib/actions/wishlists";
+import { getOwnershipFlags } from "@/lib/actions/ownership-flags";
 import { getUser } from "@/lib/supabase/auth";
 import { WishlistItemCard } from "@/components/wishlists/wishlist-item-card";
 import { AddItemSheet } from "@/components/wishlists/add-item-sheet";
@@ -42,7 +43,11 @@ export default async function WishlistPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [wishlist, user] = await Promise.all([getWishlist(id), getUser()]);
+  const [wishlist, user, ownershipFlags] = await Promise.all([
+    getWishlist(id),
+    getUser(),
+    getOwnershipFlags(id),
+  ]);
 
   if (!wishlist) {
     notFound();
@@ -51,6 +56,13 @@ export default async function WishlistPage({
   const isOwner = user?.id === wishlist.user_id;
   const items = wishlist.items || [];
   const privacy = privacyConfig[wishlist.privacy];
+
+  // Map ownership flags to items (only pending flags for owner)
+  const ownershipFlagsMap = new Map(
+    ownershipFlags
+      .filter((f) => f.status === "pending")
+      .map((f) => [f.item_id, f])
+  );
 
   return (
     <div className="space-y-8 lg:space-y-10">
@@ -158,6 +170,7 @@ export default async function WishlistPage({
               item={item}
               wishlistId={wishlist.id}
               isOwner={isOwner}
+              ownershipFlag={ownershipFlagsMap.get(item.id) || null}
             />
           ))}
         </div>

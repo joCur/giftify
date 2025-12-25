@@ -1,0 +1,12 @@
+- want levels/priority reordering
+- Price tracking/alerting
+- price comparison
+- messaging system for a specific gift?
+- voting system on what to get someone?
+- archiving
+- claim history
+- joint wishlists
+- mark as received
+- localization
+- localization of notifications
+- public wishlist, sharable by link, where anyone can claim an item (maybe)

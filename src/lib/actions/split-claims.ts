@@ -173,6 +173,21 @@ export async function initiateSplitClaim(
       return { error: "This item already has a split claim in progress" };
     }
 
+    // Check for ownership flag (pending or confirmed)
+    const { data: ownershipFlag } = await supabase
+      .from("item_ownership_flags")
+      .select("status")
+      .eq("item_id", itemId)
+      .in("status", ["pending", "confirmed"])
+      .maybeSingle();
+
+    if (ownershipFlag) {
+      if (ownershipFlag.status === "pending") {
+        return { error: "This item is under review by the owner" };
+      }
+      return { error: "The owner already has this item" };
+    }
+
     // Create split claim
     const { data: splitClaim, error: splitError } = await supabase
       .from("split_claims")

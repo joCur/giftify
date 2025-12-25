@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getWishlist } from "@/lib/actions/wishlists";
 import { getItemClaims } from "@/lib/actions/claims";
 import { getSplitClaimsForWishlist } from "@/lib/actions/split-claims";
+import { getOwnershipFlags } from "@/lib/actions/ownership-flags";
 import { getUser } from "@/lib/supabase/auth";
 import { FriendWishlistItems } from "@/components/wishlists/friend-wishlist-items";
 
@@ -14,11 +15,12 @@ export default async function FriendWishlistPage({
   params: Promise<{ id: string; wishlistId: string }>;
 }) {
   const { id: friendId, wishlistId } = await params;
-  const [wishlist, user, claims, splitClaims] = await Promise.all([
+  const [wishlist, user, claims, splitClaims, ownershipFlags] = await Promise.all([
     getWishlist(wishlistId),
     getUser(),
     getItemClaims(wishlistId),
     getSplitClaimsForWishlist(wishlistId),
+    getOwnershipFlags(wishlistId),
   ]);
 
   if (!wishlist || wishlist.user_id !== friendId) {
@@ -40,12 +42,14 @@ export default async function FriendWishlistPage({
         .slice(0, 2)
     : "?";
 
-  const items = wishlist.items || [];
+  // Filter out purchased items (including items confirmed as already owned)
+  const items = (wishlist.items || []).filter((item) => !item.is_purchased);
   const currentUserId = user?.id;
 
-  // Map claims and split claims to items
+  // Map claims, split claims, and ownership flags to items
   const claimsMap = new Map(claims.map((c) => [c.item_id, c]));
   const splitClaimsMap = new Map(splitClaims.map((sc) => [sc.item_id, sc]));
+  const ownershipFlagsMap = new Map(ownershipFlags.map((f) => [f.item_id, f]));
 
   // Generate a consistent gradient based on owner's name
   const gradients = [
@@ -119,6 +123,7 @@ export default async function FriendWishlistPage({
         wishlistId={wishlistId}
         claimsMap={claimsMap}
         splitClaimsMap={splitClaimsMap}
+        ownershipFlagsMap={ownershipFlagsMap}
         currentUserId={currentUserId}
       />
     </div>

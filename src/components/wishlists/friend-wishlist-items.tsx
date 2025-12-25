@@ -15,6 +15,9 @@ import {
   HandHeart,
   UserPlus,
   Crown,
+  Flag,
+  AlertCircle,
+  MoreVertical,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +28,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { claimItem, unclaimItem } from "@/lib/actions/claims";
 import {
   initiateSplitClaim,
@@ -32,6 +42,7 @@ import {
   leaveSplitClaim,
   confirmSplitClaim,
 } from "@/lib/actions/split-claims";
+import { flagItemAsOwned } from "@/lib/actions/ownership-flags";
 import { toast } from "sonner";
 import type { WishlistItem, SplitClaimWithParticipants } from "@/lib/supabase/types";
 import { getInitials } from "@/lib/utils";
@@ -43,11 +54,20 @@ interface Claim {
   claimer: { id: string; display_name: string | null } | null;
 }
 
+interface OwnershipFlag {
+  id: string;
+  item_id: string;
+  flagged_by: string;
+  status: string;
+  flagger: { id: string; display_name: string | null } | null;
+}
+
 interface FriendWishlistItemsProps {
   items: WishlistItem[];
   wishlistId: string;
   claimsMap: Map<string, Claim>;
   splitClaimsMap: Map<string, SplitClaimWithParticipants>;
+  ownershipFlagsMap: Map<string, OwnershipFlag>;
   currentUserId: string | undefined;
 }
 
@@ -56,11 +76,13 @@ export function FriendWishlistItems({
   wishlistId,
   claimsMap,
   splitClaimsMap,
+  ownershipFlagsMap,
   currentUserId,
 }: FriendWishlistItemsProps) {
   const [loadingItemId, setLoadingItemId] = useState<string | null>(null);
   const [localClaims, setLocalClaims] = useState(claimsMap);
   const [localSplitClaims, setLocalSplitClaims] = useState(splitClaimsMap);
+  const [localOwnershipFlags, setLocalOwnershipFlags] = useState(ownershipFlagsMap);
 
   // Split dialog state
   const [splitDialogOpen, setSplitDialogOpen] = useState(false);
@@ -269,6 +291,31 @@ export function FriendWishlistItems({
     setLoadingItemId(null);
   }
 
+  async function handleFlagItem(itemId: string) {
+    if (!currentUserId) return;
+
+    setLoadingItemId(itemId);
+    const result = await flagItemAsOwned(itemId, wishlistId);
+
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success("Owner notified to review if they already own this");
+      setLocalOwnershipFlags((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(itemId, {
+          id: "temp",
+          item_id: itemId,
+          flagged_by: currentUserId,
+          status: "pending",
+          flagger: { id: currentUserId, display_name: "You" },
+        });
+        return newMap;
+      });
+    }
+    setLoadingItemId(null);
+  }
+
   // Helper to calculate cost per person
   function getCostPerPerson(
     price: string | null,
@@ -316,6 +363,7 @@ export function FriendWishlistItems({
           {items.map((item) => {
             const claim = localClaims.get(item.id);
             const splitClaim = localSplitClaims.get(item.id);
+            const ownershipFlag = localOwnershipFlags.get(item.id);
 
             const isClaimedByMe = claim?.claimed_by === currentUserId;
             const isClaimedByOther = claim && !isClaimedByMe;
@@ -329,6 +377,7 @@ export function FriendWishlistItems({
               splitClaim &&
               splitClaim.participants.length >= splitClaim.target_participants;
 
+            const isPendingReview = ownershipFlag?.status === "pending";
             const isLoading = loadingItemId === item.id;
 
             // Calculate cost per person for splits
@@ -668,6 +717,11 @@ export function FriendWishlistItems({
                           </div>
                         )}
                       </div>
+                    ) : isPendingReview ? (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 rounded-xl px-3 py-2 border border-border/40">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        <span>Owner reviewing</span>
+                      </div>
                     ) : (
                       <div className="flex gap-2">
                         <Button
@@ -695,6 +749,27 @@ export function FriendWishlistItems({
                         >
                           <Users className="w-4 h-4 text-amber-600 dark:text-amber-400 group-hover/split:scale-110 transition-transform" />
                         </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={isLoading}
+                              className="h-9 px-2 rounded-xl hover:bg-muted/50"
+                            >
+                              <MoreVertical className="w-4 h-4 text-muted-foreground" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem
+                              onClick={() => handleFlagItem(item.id)}
+                              className="text-xs cursor-pointer"
+                            >
+                              <Flag className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
+                              <span className="text-muted-foreground">They might own this</span>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     )}
                   </div>

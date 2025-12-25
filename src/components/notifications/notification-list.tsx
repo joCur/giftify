@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
-import { Bell, Gift, Users, UserPlus, Cake, Package, Check, Split, UserMinus, CircleCheck, CircleX } from "lucide-react";
+import { Bell, Gift, Users, UserPlus, Cake, Package, Check, Split, UserMinus, CircleCheck, CircleX, Flag, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -39,6 +39,12 @@ function getNotificationIcon(type: NotificationType) {
       return <CircleCheck className="h-5 w-5 text-green-500" />;
     case "split_cancelled":
       return <CircleX className="h-5 w-5 text-red-500" />;
+    case "item_flagged_already_owned":
+      return <Flag className="h-5 w-5 text-amber-500" />;
+    case "flag_confirmed":
+      return <CircleCheck className="h-5 w-5 text-green-500" />;
+    case "flag_denied":
+      return <AlertCircle className="h-5 w-5 text-blue-500" />;
     default:
       return <Bell className="h-5 w-5" />;
   }
@@ -65,6 +71,21 @@ function getNotificationLink(notification: NotificationWithActor): string {
     case "split_cancelled":
       // Link to the wishlist with item anchor for direct navigation
       // Use wishlist owner ID (not actor_id, which is the person who performed the action)
+      if (notification.wishlist?.user_id && notification.wishlist_id) {
+        const base = `/friends/${notification.wishlist.user_id}/wishlists/${notification.wishlist_id}`;
+        return notification.item_id ? `${base}#item-${notification.item_id}` : base;
+      }
+      return "/friends";
+    case "item_flagged_already_owned":
+      // Owner receives this - link to their own wishlist where they can respond
+      if (notification.wishlist_id) {
+        const base = `/wishlists/${notification.wishlist_id}`;
+        return notification.item_id ? `${base}#item-${notification.item_id}` : base;
+      }
+      return "/dashboard";
+    case "flag_confirmed":
+    case "flag_denied":
+      // Flagger receives this - link to the friend's wishlist
       if (notification.wishlist?.user_id && notification.wishlist_id) {
         const base = `/friends/${notification.wishlist.user_id}/wishlists/${notification.wishlist_id}`;
         return notification.item_id ? `${base}#item-${notification.item_id}` : base;

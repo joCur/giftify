@@ -154,6 +154,51 @@ export type Database = {
           },
         ]
       }
+      item_ownership_flags: {
+        Row: {
+          created_at: string
+          flagged_by: string
+          id: string
+          item_id: string
+          resolved_at: string | null
+          status: Database["public"]["Enums"]["ownership_flag_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          flagged_by: string
+          id?: string
+          item_id: string
+          resolved_at?: string | null
+          status?: Database["public"]["Enums"]["ownership_flag_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          flagged_by?: string
+          id?: string
+          item_id?: string
+          resolved_at?: string | null
+          status?: Database["public"]["Enums"]["ownership_flag_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "item_ownership_flags_flagged_by_fkey"
+            columns: ["flagged_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_ownership_flags_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: true
+            referencedRelation: "wishlist_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_preferences: {
         Row: {
           birthday_reminder_days: number
@@ -192,6 +237,7 @@ export type Database = {
           is_read: boolean
           item_id: string | null
           message: string
+          ownership_flag_id: string | null
           split_claim_id: string | null
           title: string
           type: Database["public"]["Enums"]["notification_type"]
@@ -206,6 +252,7 @@ export type Database = {
           is_read?: boolean
           item_id?: string | null
           message: string
+          ownership_flag_id?: string | null
           split_claim_id?: string | null
           title: string
           type: Database["public"]["Enums"]["notification_type"]
@@ -220,6 +267,7 @@ export type Database = {
           is_read?: boolean
           item_id?: string | null
           message?: string
+          ownership_flag_id?: string | null
           split_claim_id?: string | null
           title?: string
           type?: Database["public"]["Enums"]["notification_type"]
@@ -246,6 +294,13 @@ export type Database = {
             columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "wishlist_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_ownership_flag_id_fkey"
+            columns: ["ownership_flag_id"]
+            isOneToOne: false
+            referencedRelation: "item_ownership_flags"
             referencedColumns: ["id"]
           },
           {
@@ -586,6 +641,10 @@ export type Database = {
         | "split_left"
         | "split_confirmed"
         | "split_cancelled"
+        | "item_flagged_already_owned"
+        | "flag_confirmed"
+        | "flag_denied"
+      ownership_flag_status: "pending" | "confirmed" | "denied"
       split_claim_status: "pending" | "confirmed"
       wishlist_privacy: "public" | "friends" | "private" | "selected_friends"
     }
@@ -730,12 +789,14 @@ export const Constants = {
         "split_left",
         "split_confirmed",
         "split_cancelled",
+        "item_flagged_already_owned",
+        "flag_confirmed",
+        "flag_denied",
       ],
+      ownership_flag_status: ["pending", "confirmed", "denied"],
       split_claim_status: ["pending", "confirmed"],
       wishlist_privacy: ["public", "friends", "private", "selected_friends"],
     },
   },
 } as const
 
-
-export * from "./types.custom";

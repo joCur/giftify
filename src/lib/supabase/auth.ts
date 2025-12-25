@@ -64,17 +64,7 @@ export async function getUser() {
   const supabase = await createClient();
   const {
     data: { user },
-    error,
   } = await supabase.auth.getUser();
-
-  // DEBUG: Log auth state
-  console.log('[getUser Debug]', {
-    hasUser: !!user,
-    userId: user?.id,
-    hasError: !!error,
-    error: error?.message,
-  });
-
   return user;
 }
 

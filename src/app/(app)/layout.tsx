@@ -4,6 +4,11 @@ import { BottomNav } from "@/components/navigation/bottom-nav";
 import { TopHeader } from "@/components/navigation/top-header";
 import { Sidebar } from "@/components/navigation/sidebar";
 
+// Force dynamic rendering for all authenticated pages
+// This ensures user session is fetched fresh on every request, preventing
+// stale cached data in production builds (dev mode is always dynamic)
+export const dynamic = 'force-dynamic';
+
 export default async function AppLayout({
   children,
 }: {

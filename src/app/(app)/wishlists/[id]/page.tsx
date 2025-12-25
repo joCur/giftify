@@ -54,15 +54,6 @@ export default async function WishlistPage({
     notFound();
   }
 
-  // DEBUG: Log user and ownership check
-  console.log('[Wishlist Page Debug]', {
-    userId: user?.id,
-    wishlistUserId: wishlist.user_id,
-    isOwner: user?.id === wishlist.user_id,
-    hasUser: !!user,
-    environment: process.env.NODE_ENV,
-  });
-
   const isOwner = user?.id === wishlist.user_id;
   const items = wishlist.items || [];
   const privacy = privacyConfig[wishlist.privacy];

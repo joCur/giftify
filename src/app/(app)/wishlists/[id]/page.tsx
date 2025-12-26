@@ -11,6 +11,10 @@ import { WishlistSettingsSheet } from "@/components/wishlists/wishlist-settings-
 import { UnarchiveButton } from "@/components/wishlists/unarchive-button";
 import type { WishlistPrivacy } from "@/lib/supabase/types.custom";
 
+// Explicitly force dynamic rendering on this page
+// Layout has it too, but adding here to ensure it works in production
+export const dynamic = 'force-dynamic';
+
 const privacyConfig: Record<
   WishlistPrivacy,
   { icon: React.ReactNode; label: string; color: string }
@@ -59,16 +63,6 @@ export default async function WishlistPage({
   const privacy = privacyConfig[wishlist.privacy];
   const isArchived = wishlist.is_archived;
 
-  // DEBUG: Check what's actually happening
-  console.log('Wishlist Page Render:', {
-    hasUser: !!user,
-    userId: user?.id,
-    wishlistUserId: wishlist.user_id,
-    isOwner,
-    isArchived,
-    NODE_ENV: process.env.NODE_ENV,
-  });
-
   // Map ownership flags to items (only pending flags for owner)
   const ownershipFlagsMap = new Map(
     ownershipFlags
@@ -78,9 +72,6 @@ export default async function WishlistPage({
 
   return (
     <div className="space-y-8 lg:space-y-10">
-      {/* Hidden user ID check to prevent Next.js optimization issues */}
-      <span className="hidden" aria-hidden="true">{user?.id}</span>
-
       {/* Archived Banner */}
       {isOwner && isArchived && (
         <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4">

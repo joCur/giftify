@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { unstable_noStore as noStore } from "next/cache";
 import { ArrowLeft, Plus, Settings, Gift, Lock, Users, UserCheck, Sparkles, Archive, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -11,9 +12,9 @@ import { WishlistSettingsSheet } from "@/components/wishlists/wishlist-settings-
 import { UnarchiveButton } from "@/components/wishlists/unarchive-button";
 import type { WishlistPrivacy } from "@/lib/supabase/types.custom";
 
-// Explicitly force dynamic rendering on this page
-// Layout has it too, but adding here to ensure it works in production
+// Force dynamic rendering AND disable all caching
 export const dynamic = 'force-dynamic';
+export const revalidate = 0; // Never cache, always fetch fresh
 
 const privacyConfig: Record<
   WishlistPrivacy,
@@ -47,6 +48,7 @@ export default async function WishlistPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  noStore(); // Prevent ANY caching of this page
   const { id } = await params;
   const [wishlist, user, ownershipFlags] = await Promise.all([
     getWishlist(id),

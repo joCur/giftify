@@ -3,13 +3,16 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireAuth } from "./helpers";
 import { revalidatePath } from "next/cache";
-import type { NotificationWithActor } from "@/lib/supabase/types.custom";
+import type { NotificationWithActor, NotificationStatus } from "@/lib/supabase/types.custom";
 
 /**
  * Get user's notifications with related actor, wishlist, and item data
+ * @param limit - Maximum number of notifications to fetch
+ * @param status - Filter by notification status (inbox or archived)
  */
 export async function getNotifications(
-  limit = 50
+  limit = 50,
+  status: NotificationStatus = "inbox"
 ): Promise<NotificationWithActor[]> {
   const supabase = await createClient();
   const {
@@ -29,6 +32,7 @@ export async function getNotifications(
     `
     )
     .eq("user_id", user.id)
+    .eq("status", status)
     .order("created_at", { ascending: false })
     .limit(limit);
 
@@ -41,7 +45,7 @@ export async function getNotifications(
 }
 
 /**
- * Get count of unread notifications
+ * Get count of unread notifications (inbox only)
  */
 export async function getUnreadCount(): Promise<number> {
   const supabase = await createClient();
@@ -55,6 +59,7 @@ export async function getUnreadCount(): Promise<number> {
     .from("notifications")
     .select("*", { count: "exact", head: true })
     .eq("user_id", user.id)
+    .eq("status", "inbox")
     .eq("is_read", false);
 
   if (error) {
@@ -90,7 +95,7 @@ export async function markNotificationRead(notificationId: string) {
 }
 
 /**
- * Mark all notifications as read
+ * Mark all inbox notifications as read
  */
 export async function markAllNotificationsRead() {
   try {
@@ -100,6 +105,7 @@ export async function markAllNotificationsRead() {
       .from("notifications")
       .update({ is_read: true })
       .eq("user_id", user.id)
+      .eq("status", "inbox")
       .eq("is_read", false);
 
     if (error) {
@@ -174,6 +180,79 @@ export async function updateNotificationPreferences(birthdayReminderDays: number
     }
 
     revalidatePath("/profile");
+    return { success: true };
+  } catch {
+    return { error: "Not authenticated" };
+  }
+}
+
+/**
+ * Archive a single notification
+ */
+export async function archiveNotification(notificationId: string) {
+  try {
+    const { supabase, user } = await requireAuth();
+
+    const { error } = await supabase
+      .from("notifications")
+      .update({ status: "archived" })
+      .eq("id", notificationId)
+      .eq("user_id", user.id);
+
+    if (error) {
+      return { error: error.message };
+    }
+
+    revalidatePath("/", "layout");
+    return { success: true };
+  } catch {
+    return { error: "Not authenticated" };
+  }
+}
+
+/**
+ * Archive all read notifications (bulk action)
+ */
+export async function archiveAllReadNotifications() {
+  try {
+    const { supabase, user } = await requireAuth();
+
+    const { error } = await supabase
+      .from("notifications")
+      .update({ status: "archived" })
+      .eq("user_id", user.id)
+      .eq("status", "inbox")
+      .eq("is_read", true);
+
+    if (error) {
+      return { error: error.message };
+    }
+
+    revalidatePath("/", "layout");
+    return { success: true };
+  } catch {
+    return { error: "Not authenticated" };
+  }
+}
+
+/**
+ * Unarchive a notification (restore to inbox)
+ */
+export async function unarchiveNotification(notificationId: string) {
+  try {
+    const { supabase, user } = await requireAuth();
+
+    const { error } = await supabase
+      .from("notifications")
+      .update({ status: "inbox" })
+      .eq("id", notificationId)
+      .eq("user_id", user.id);
+
+    if (error) {
+      return { error: error.message };
+    }
+
+    revalidatePath("/", "layout");
     return { success: true };
   } catch {
     return { error: "Not authenticated" };

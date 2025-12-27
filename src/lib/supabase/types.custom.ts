@@ -9,6 +9,7 @@ export type { Database };
 export type WishlistPrivacy = Database["public"]["Enums"]["wishlist_privacy"];
 export type FriendshipStatus = Database["public"]["Enums"]["friendship_status"];
 export type NotificationType = Database["public"]["Enums"]["notification_type"];
+export type NotificationStatus = Database["public"]["Enums"]["notification_status"];
 export type SplitClaimStatus = Database["public"]["Enums"]["split_claim_status"];
 
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"];

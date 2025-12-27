@@ -297,6 +297,7 @@ export type Database = {
           message: string
           ownership_flag_id: string | null
           split_claim_id: string | null
+          status: Database["public"]["Enums"]["notification_status"]
           title: string
           type: Database["public"]["Enums"]["notification_type"]
           user_id: string
@@ -312,6 +313,7 @@ export type Database = {
           message: string
           ownership_flag_id?: string | null
           split_claim_id?: string | null
+          status?: Database["public"]["Enums"]["notification_status"]
           title: string
           type: Database["public"]["Enums"]["notification_type"]
           user_id: string
@@ -327,6 +329,7 @@ export type Database = {
           message?: string
           ownership_flag_id?: string | null
           split_claim_id?: string | null
+          status?: Database["public"]["Enums"]["notification_status"]
           title?: string
           type?: Database["public"]["Enums"]["notification_type"]
           user_id?: string
@@ -775,6 +778,7 @@ export type Database = {
     Enums: {
       claim_status: "active" | "cancelled"
       friendship_status: "pending" | "accepted" | "declined"
+      notification_status: "inbox" | "archived"
       notification_type:
         | "friend_request_received"
         | "friend_request_accepted"
@@ -927,6 +931,7 @@ export const Constants = {
     Enums: {
       claim_status: ["active", "cancelled"],
       friendship_status: ["pending", "accepted", "declined"],
+      notification_status: ["inbox", "archived"],
       notification_type: [
         "friend_request_received",
         "friend_request_accepted",

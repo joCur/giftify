@@ -7,6 +7,8 @@ import {
   getUnreadCount,
   markNotificationRead,
   markAllNotificationsRead,
+  archiveNotification as archiveNotificationAction,
+  archiveAllReadNotifications,
 } from "@/lib/actions/notifications";
 import type { NotificationWithActor } from "@/lib/supabase/types.custom";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -28,12 +30,12 @@ export function useNotifications() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch notifications from server
+  // Fetch notifications from server (inbox only)
   const fetchNotifications = useCallback(async () => {
     if (!userId) return;
 
     const [notifs, count] = await Promise.all([
-      getNotifications(),
+      getNotifications(50, "inbox"),
       getUnreadCount(),
     ]);
 
@@ -45,6 +47,12 @@ export function useNotifications() {
   // Mark single notification as read
   const markAsRead = useCallback(
     async (notificationId: string) => {
+      // Find the notification to check if it's unread
+      const notification = notifications.find((n) => n.id === notificationId);
+      if (!notification || notification.is_read) {
+        return { success: true };
+      }
+
       // Optimistic update
       setNotifications((prev) =>
         prev.map((n) =>
@@ -62,7 +70,7 @@ export function useNotifications() {
 
       return result;
     },
-    [fetchNotifications]
+    [fetchNotifications, notifications]
   );
 
   // Mark all notifications as read
@@ -72,6 +80,46 @@ export function useNotifications() {
     setUnreadCount(0);
 
     const result = await markAllNotificationsRead();
+
+    if (result.error) {
+      // Revert on error
+      await fetchNotifications();
+    }
+
+    return result;
+  }, [fetchNotifications]);
+
+  // Archive single notification
+  const archiveNotification = useCallback(
+    async (notificationId: string) => {
+      // Find the notification to check if it was unread
+      const notification = notifications.find((n) => n.id === notificationId);
+      const wasUnread = notification && !notification.is_read;
+
+      // Optimistic update - remove from list
+      setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
+      if (wasUnread) {
+        setUnreadCount((prev) => Math.max(0, prev - 1));
+      }
+
+      const result = await archiveNotificationAction(notificationId);
+
+      if (result.error) {
+        // Revert on error
+        await fetchNotifications();
+      }
+
+      return result;
+    },
+    [fetchNotifications, notifications]
+  );
+
+  // Archive all read notifications
+  const archiveAllRead = useCallback(async () => {
+    // Optimistic update - remove all read notifications
+    setNotifications((prev) => prev.filter((n) => !n.is_read));
+
+    const result = await archiveAllReadNotifications();
 
     if (result.error) {
       // Revert on error
@@ -104,6 +152,9 @@ export function useNotifications() {
           filter: `user_id=eq.${userId}`,
         },
         async (payload) => {
+          // Only add to list if it's an inbox notification
+          if (payload.new.status !== "inbox") return;
+
           // Fetch the full notification with relations
           const { data, error } = await supabase
             .from("notifications")
@@ -133,18 +184,46 @@ export function useNotifications() {
           filter: `user_id=eq.${userId}`,
         },
         (payload) => {
-          // Update the notification in state
-          setNotifications((prev) =>
-            prev.map((n) =>
-              n.id === payload.new.id ? { ...n, ...payload.new } : n
-            )
-          );
+          const newStatus = payload.new.status;
+          const notificationId = payload.new.id;
 
-          // Update unread count if is_read changed
-          if (payload.old.is_read !== payload.new.is_read) {
-            setUnreadCount((prev) =>
-              payload.new.is_read ? Math.max(0, prev - 1) : prev + 1
-            );
+          // Handle status change to archived - remove from inbox list
+          if (newStatus === "archived") {
+            setNotifications((prev) => {
+              const notification = prev.find((n) => n.id === notificationId);
+              if (notification && !notification.is_read) {
+                // Decrement unread count if the archived notification was unread
+                setUnreadCount((count) => Math.max(0, count - 1));
+              }
+              return prev.filter((n) => n.id !== notificationId);
+            });
+            return;
+          }
+
+          // Handle status change to inbox (unarchive) - add to inbox list
+          if (newStatus === "inbox") {
+            setNotifications((prev) => {
+              // Check if we already have this notification
+              const exists = prev.some((n) => n.id === notificationId);
+              if (!exists) {
+                // Refetch to get the full notification with relations
+                fetchNotifications();
+                return prev;
+              }
+              // Update existing notification
+              return prev.map((n) =>
+                n.id === notificationId ? { ...n, ...payload.new } : n
+              );
+            });
+
+            // Update unread count if is_read changed
+            const wasRead = payload.old?.is_read;
+            const isRead = payload.new.is_read;
+            if (wasRead !== undefined && wasRead !== isRead) {
+              setUnreadCount((prev) =>
+                isRead ? Math.max(0, prev - 1) : prev + 1
+              );
+            }
           }
         }
       )
@@ -157,15 +236,16 @@ export function useNotifications() {
           filter: `user_id=eq.${userId}`,
         },
         (payload) => {
-          // Remove deleted notification from state
-          setNotifications((prev) =>
-            prev.filter((n) => n.id !== payload.old.id)
-          );
+          const notificationId = payload.old.id;
 
-          // Decrement unread count if the deleted notification was unread
-          if (!payload.old.is_read) {
-            setUnreadCount((prev) => Math.max(0, prev - 1));
-          }
+          // Remove deleted notification from state and update unread count if needed
+          setNotifications((prev) => {
+            const notification = prev.find((n) => n.id === notificationId);
+            if (notification && !notification.is_read) {
+              setUnreadCount((count) => Math.max(0, count - 1));
+            }
+            return prev.filter((n) => n.id !== notificationId);
+          });
         }
       )
       .subscribe();
@@ -174,7 +254,7 @@ export function useNotifications() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId]);
+  }, [userId, fetchNotifications]);
 
   return {
     notifications,
@@ -182,6 +262,8 @@ export function useNotifications() {
     isLoading,
     markAsRead,
     markAllAsRead,
+    archiveNotification,
+    archiveAllRead,
     refetch: fetchNotifications,
   };
 }

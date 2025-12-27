@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { ExternalLink, Trash2, Check, MoreVertical, Package, Pencil, Flag, X } from "lucide-react";
+import { ExternalLink, Trash2, Check, MoreVertical, Package, Pencil, Flag, X, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -20,7 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { deleteItem, markItemPurchased } from "@/lib/actions/items";
+import { deleteItem, markItemPurchased, markItemReceived } from "@/lib/actions/items";
 import { confirmOwnershipFlag, denyOwnershipFlag } from "@/lib/actions/ownership-flags";
 import { toast } from "sonner";
 import type { WishlistItem } from "@/lib/supabase/types.custom";
@@ -58,6 +58,8 @@ export function WishlistItemCard({
   ownershipFlag,
 }: WishlistItemCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isTogglingPurchased, setIsTogglingPurchased] = useState(false);
+  const [isTogglingReceived, setIsTogglingReceived] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [denyDialogOpen, setDenyDialogOpen] = useState(false);
@@ -74,9 +76,32 @@ export function WishlistItemCard({
   }
 
   async function handleTogglePurchased() {
-    const result = await markItemPurchased(item.id, wishlistId, !item.is_purchased);
-    if ("error" in result) {
-      toast.error(result.error);
+    setIsTogglingPurchased(true);
+    try {
+      const result = await markItemPurchased(item.id, wishlistId, !item.is_purchased);
+      if ("error" in result) {
+        toast.error(result.error);
+      }
+    } catch {
+      toast.error("Failed to update item");
+    } finally {
+      setIsTogglingPurchased(false);
+    }
+  }
+
+  async function handleToggleReceived() {
+    setIsTogglingReceived(true);
+    try {
+      const result = await markItemReceived(item.id, wishlistId, !item.is_received);
+      if ("error" in result) {
+        toast.error(result.error);
+      } else {
+        toast.success(item.is_received ? "Item unmarked as received" : "Item marked as received");
+      }
+    } catch {
+      toast.error("Failed to update item");
+    } finally {
+      setIsTogglingReceived(false);
     }
   }
 
@@ -113,7 +138,7 @@ export function WishlistItemCard({
   return (
     <div
       className={`group relative h-full bg-card border border-border/50 rounded-2xl overflow-hidden hover:shadow-xl hover:shadow-primary/5 transition-all duration-200 hover:-translate-y-1 ${
-        item.is_purchased ? "opacity-60" : ""
+        item.is_purchased || item.is_received ? "opacity-60" : ""
       }`}
     >
       {/* Hover gradient overlay */}
@@ -135,14 +160,20 @@ export function WishlistItemCard({
           </div>
         )}
 
-        {/* Purchased overlay */}
-        {item.is_purchased && (
+        {/* Received overlay - takes priority over purchased since it means the gift was given */}
+        {item.is_received ? (
+          <div className="absolute inset-0 bg-background/60 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-full bg-amber-500 flex items-center justify-center shadow-lg">
+              <Gift className="w-6 h-6 text-white" />
+            </div>
+          </div>
+        ) : item.is_purchased ? (
           <div className="absolute inset-0 bg-background/60 flex items-center justify-center">
             <div className="w-12 h-12 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg">
               <Check className="w-6 h-6 text-white" />
             </div>
           </div>
-        )}
+        ) : null}
 
         {/* Ownership flag badge */}
         {isOwner && ownershipFlag?.status === "pending" && (
@@ -182,7 +213,7 @@ export function WishlistItemCard({
                   variant="secondary"
                   size="icon"
                   className="h-8 w-8 rounded-lg bg-background/90 backdrop-blur-sm shadow-sm hover:bg-background"
-                  disabled={isDeleting}
+                  disabled={isDeleting || isTogglingPurchased || isTogglingReceived}
                 >
                   <MoreVertical className="w-4 h-4" />
                 </Button>
@@ -192,9 +223,13 @@ export function WishlistItemCard({
                   <Pencil className="w-4 h-4 mr-2" />
                   Edit
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleTogglePurchased}>
+                <DropdownMenuItem onClick={handleTogglePurchased} disabled={isTogglingPurchased}>
                   <Check className="w-4 h-4 mr-2" />
-                  {item.is_purchased ? "Mark as not purchased" : "Mark as purchased"}
+                  {isTogglingPurchased ? "Updating..." : item.is_purchased ? "Mark as not purchased" : "Mark as purchased"}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleToggleReceived} disabled={isTogglingReceived}>
+                  <Gift className="w-4 h-4 mr-2" />
+                  {isTogglingReceived ? "Updating..." : item.is_received ? "Unmark as received" : "Mark as received"}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={handleDelete}
@@ -213,7 +248,7 @@ export function WishlistItemCard({
       <div className="relative p-4">
         <h3
           className={`font-semibold line-clamp-2 group-hover:text-primary transition-colors ${
-            item.is_purchased ? "line-through text-muted-foreground" : ""
+            item.is_purchased || item.is_received ? "line-through text-muted-foreground" : ""
           }`}
         >
           {item.title}

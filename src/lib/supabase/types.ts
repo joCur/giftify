@@ -175,6 +175,7 @@ export type Database = {
           cancelled_at: string | null
           claimed_by: string
           created_at: string
+          fulfilled_at: string | null
           id: string
           item_id: string
           status: Database["public"]["Enums"]["claim_status"]
@@ -183,6 +184,7 @@ export type Database = {
           cancelled_at?: string | null
           claimed_by: string
           created_at?: string
+          fulfilled_at?: string | null
           id?: string
           item_id: string
           status?: Database["public"]["Enums"]["claim_status"]
@@ -191,6 +193,7 @@ export type Database = {
           cancelled_at?: string | null
           claimed_by?: string
           created_at?: string
+          fulfilled_at?: string | null
           id?: string
           item_id?: string
           status?: Database["public"]["Enums"]["claim_status"]
@@ -456,6 +459,7 @@ export type Database = {
           claim_status: Database["public"]["Enums"]["claim_status"]
           confirmed_at: string | null
           created_at: string
+          fulfilled_at: string | null
           id: string
           initiated_by: string
           item_id: string
@@ -468,6 +472,7 @@ export type Database = {
           claim_status?: Database["public"]["Enums"]["claim_status"]
           confirmed_at?: string | null
           created_at?: string
+          fulfilled_at?: string | null
           id?: string
           initiated_by: string
           item_id: string
@@ -480,6 +485,7 @@ export type Database = {
           claim_status?: Database["public"]["Enums"]["claim_status"]
           confirmed_at?: string | null
           created_at?: string
+          fulfilled_at?: string | null
           id?: string
           initiated_by?: string
           item_id?: string
@@ -559,6 +565,7 @@ export type Database = {
           id: string
           image_url: string | null
           is_purchased: boolean
+          is_received: boolean
           notes: string | null
           price: string | null
           title: string
@@ -574,6 +581,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_purchased?: boolean
+          is_received?: boolean
           notes?: string | null
           price?: string | null
           title: string
@@ -589,6 +597,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_purchased?: boolean
+          is_received?: boolean
           notes?: string | null
           price?: string | null
           title?: string
@@ -711,6 +720,14 @@ export type Database = {
         Args: { invite_code: string; new_user_id: string }
         Returns: undefined
       }
+      fulfill_claims_for_item: {
+        Args: { p_item_id: string; p_owner_id?: string }
+        Returns: {
+          claim_id: string
+          claim_type: string
+          claimer_ids: string[]
+        }[]
+      }
       get_split_claim_item_info: {
         Args: { p_item_id: string }
         Returns: {
@@ -776,7 +793,7 @@ export type Database = {
       }
     }
     Enums: {
-      claim_status: "active" | "cancelled"
+      claim_status: "active" | "cancelled" | "fulfilled"
       friendship_status: "pending" | "accepted" | "declined"
       notification_status: "inbox" | "archived"
       notification_type:
@@ -796,6 +813,8 @@ export type Database = {
         | "wishlist_archived"
         | "collaborator_invited"
         | "collaborator_left"
+        | "gift_received"
+        | "gift_marked_given"
       ownership_flag_status: "pending" | "confirmed" | "denied"
       split_claim_status: "pending" | "confirmed"
       wishlist_privacy: "public" | "friends" | "private" | "selected_friends"
@@ -929,7 +948,7 @@ export const Constants = {
   },
   public: {
     Enums: {
-      claim_status: ["active", "cancelled"],
+      claim_status: ["active", "cancelled", "fulfilled"],
       friendship_status: ["pending", "accepted", "declined"],
       notification_status: ["inbox", "archived"],
       notification_type: [
@@ -949,6 +968,8 @@ export const Constants = {
         "wishlist_archived",
         "collaborator_invited",
         "collaborator_left",
+        "gift_received",
+        "gift_marked_given",
       ],
       ownership_flag_status: ["pending", "confirmed", "denied"],
       split_claim_status: ["pending", "confirmed"],

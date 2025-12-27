@@ -395,3 +395,99 @@ export async function markItemPurchased(
     return { error: "Not authenticated" };
   }
 }
+
+export async function markItemReceived(
+  itemId: string,
+  wishlistId: string,
+  received: boolean
+) {
+  try {
+    const { supabase, user } = await requireAuth();
+
+    // Verify user owns the wishlist and it's not archived
+    const { data: wishlist } = await supabase
+      .from("wishlists")
+      .select("user_id, is_archived")
+      .eq("id", wishlistId)
+      .single();
+
+    if (!wishlist) {
+      return { error: "Wishlist not found" };
+    }
+
+    if (wishlist.user_id !== user.id) {
+      return { error: "Not authorized" };
+    }
+
+    if (wishlist.is_archived) {
+      return { error: "Cannot modify items in archived wishlist" };
+    }
+
+    // Get item details for notification
+    const { data: item } = await supabase
+      .from("wishlist_items")
+      .select("title")
+      .eq("id", itemId)
+      .single();
+
+    if (!item) {
+      return { error: "Item not found" };
+    }
+
+    // Update the item's received status
+    const { error: updateError } = await supabase
+      .from("wishlist_items")
+      .update({ is_received: received })
+      .eq("id", itemId);
+
+    if (updateError) {
+      return { error: updateError.message };
+    }
+
+    // If marking as received, find and fulfill any active claims
+    // Uses a database function with SECURITY DEFINER to bypass RLS
+    // (owners can't normally see claims on their own items to keep gifts secret)
+    // The function also creates notifications directly in the database
+    if (received) {
+      const { data: fulfilledClaims, error: rpcError } = await supabase
+        .rpc("fulfill_claims_for_item", {
+          p_item_id: itemId,
+          p_owner_id: user.id
+        });
+
+      if (rpcError) {
+        console.error("Failed to fulfill claims:", rpcError);
+        // Continue anyway - item is already marked as received
+      }
+
+      // Record history events for any fulfilled claims
+      if (fulfilledClaims && fulfilledClaims.length > 0) {
+        const { recordClaimHistoryEvent } = await import("./claim-history");
+
+        for (const claim of fulfilledClaims) {
+          // Record history event
+          if (claim.claim_type === "solo") {
+            await recordClaimHistoryEvent("fulfilled", claim.claim_id, undefined, {
+              item_id: itemId,
+              wishlist_id: wishlistId,
+              fulfilled_by: "owner",
+            });
+          } else {
+            await recordClaimHistoryEvent("fulfilled", undefined, claim.claim_id, {
+              item_id: itemId,
+              wishlist_id: wishlistId,
+              fulfilled_by: "owner",
+            });
+          }
+        }
+      }
+    }
+
+    revalidatePath(`/wishlists/${wishlistId}`);
+    revalidatePath(`/claims-history`);
+    revalidatePath(`/dashboard`);
+    return { success: true };
+  } catch {
+    return { error: "Not authenticated" };
+  }
+}

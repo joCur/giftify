@@ -1,6 +1,6 @@
 // Types for claim history feature
 
-export type ClaimStatus = "active" | "cancelled";
+export type ClaimStatus = "active" | "cancelled" | "fulfilled";
 
 // Event types for audit trail
 export type ClaimEventType =
@@ -9,7 +9,8 @@ export type ClaimEventType =
   | "uncancelled"
   | "joined_split"
   | "left_split"
-  | "split_cancelled";
+  | "split_cancelled"
+  | "fulfilled";
 
 // Base claim history item with common fields
 export interface ClaimHistoryItemBase {
@@ -17,6 +18,7 @@ export interface ClaimHistoryItemBase {
   status: ClaimStatus;
   created_at: string;
   cancelled_at: string | null;
+  fulfilled_at: string | null;
   item: {
     id: string;
     title: string;
@@ -81,6 +83,7 @@ export interface ClaimHistoryResponse {
   periods: ClaimHistoryPeriod[];
   totalActive: number;
   totalCancelled: number;
+  totalFulfilled: number;
 }
 
 // Claim history event (audit log)

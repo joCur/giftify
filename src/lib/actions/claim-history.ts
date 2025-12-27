@@ -21,11 +21,13 @@ function groupClaimsByPeriod(claims: ClaimHistoryItem[]): ClaimHistoryPeriod[] {
   const periodMap = new Map<string, ClaimHistoryPeriod>();
 
   claims.forEach((claim) => {
-    // Use cancelled_at for cancelled claims, created_at for active
-    const dateStr =
-      claim.status === "cancelled" && claim.cancelled_at
-        ? claim.cancelled_at
-        : claim.created_at;
+    // Use cancelled_at for cancelled, fulfilled_at for fulfilled, created_at for active
+    let dateStr = claim.created_at;
+    if (claim.status === "cancelled" && claim.cancelled_at) {
+      dateStr = claim.cancelled_at;
+    } else if (claim.status === "fulfilled" && claim.fulfilled_at) {
+      dateStr = claim.fulfilled_at;
+    }
     const date = new Date(dateStr);
     const year = date.getFullYear();
     const month = date.getMonth() + 1; // 1-indexed
@@ -52,14 +54,18 @@ function groupClaimsByPeriod(claims: ClaimHistoryItem[]): ClaimHistoryPeriod[] {
   // Sort claims within each period by date (most recent first)
   periods.forEach((period) => {
     period.claims.sort((a, b) => {
-      const dateA =
-        a.status === "cancelled" && a.cancelled_at
-          ? a.cancelled_at
-          : a.created_at;
-      const dateB =
-        b.status === "cancelled" && b.cancelled_at
-          ? b.cancelled_at
-          : b.created_at;
+      let dateA = a.created_at;
+      if (a.status === "cancelled" && a.cancelled_at) {
+        dateA = a.cancelled_at;
+      } else if (a.status === "fulfilled" && a.fulfilled_at) {
+        dateA = a.fulfilled_at;
+      }
+      let dateB = b.created_at;
+      if (b.status === "cancelled" && b.cancelled_at) {
+        dateB = b.cancelled_at;
+      } else if (b.status === "fulfilled" && b.fulfilled_at) {
+        dateB = b.fulfilled_at;
+      }
       return new Date(dateB).getTime() - new Date(dateA).getTime();
     });
   });
@@ -79,12 +85,13 @@ export async function getClaimHistoryGrouped(
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return { periods: [], totalActive: 0, totalCancelled: 0 };
+    return { periods: [], totalActive: 0, totalCancelled: 0, totalFulfilled: 0 };
   }
 
   const allClaims: ClaimHistoryItem[] = [];
   let totalActive = 0;
   let totalCancelled = 0;
+  let totalFulfilled = 0;
 
   // Fetch solo claims
   if (!filters?.type || filters.type.includes("solo")) {
@@ -97,6 +104,7 @@ export async function getClaimHistoryGrouped(
         status,
         created_at,
         cancelled_at,
+        fulfilled_at,
         item:wishlist_items!inner(
           id,
           title,
@@ -166,9 +174,10 @@ export async function getClaimHistoryGrouped(
           avatar_url: string | null;
         };
 
-        const status = claim.status as "active" | "cancelled";
+        const status = claim.status as "active" | "cancelled" | "fulfilled";
         if (status === "active") totalActive++;
-        else totalCancelled++;
+        else if (status === "cancelled") totalCancelled++;
+        else if (status === "fulfilled") totalFulfilled++;
 
         const historyItem: SoloClaimHistoryItem = {
           type: "solo",
@@ -177,6 +186,7 @@ export async function getClaimHistoryGrouped(
           status,
           created_at: claim.created_at,
           cancelled_at: claim.cancelled_at,
+          fulfilled_at: claim.fulfilled_at,
           item: {
             id: item.id,
             title: item.title,
@@ -227,6 +237,7 @@ export async function getClaimHistoryGrouped(
           claim_status,
           created_at,
           cancelled_at,
+          fulfilled_at,
           confirmed_at,
           item:wishlist_items!inner(
             id,
@@ -309,9 +320,10 @@ export async function getClaimHistoryGrouped(
             display_name: p.user.display_name,
           }));
 
-          const status = claim.claim_status as "active" | "cancelled";
+          const status = claim.claim_status as "active" | "cancelled" | "fulfilled";
           if (status === "active") totalActive++;
-          else totalCancelled++;
+          else if (status === "cancelled") totalCancelled++;
+          else if (status === "fulfilled") totalFulfilled++;
 
           const historyItem: SplitClaimHistoryItem = {
             type: "split",
@@ -319,6 +331,7 @@ export async function getClaimHistoryGrouped(
             status,
             created_at: claim.created_at,
             cancelled_at: claim.cancelled_at,
+            fulfilled_at: claim.fulfilled_at,
             split_status: claim.status as "pending" | "confirmed",
             initiated_by: claim.initiated_by,
             is_initiator: claim.initiated_by === user.id,
@@ -360,6 +373,7 @@ export async function getClaimHistoryGrouped(
     periods,
     totalActive,
     totalCancelled,
+    totalFulfilled,
   };
 }
 

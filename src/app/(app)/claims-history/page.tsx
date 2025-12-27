@@ -29,7 +29,7 @@ export default async function ClaimsHistoryPage() {
               Your Gift History
             </h2>
             <p className="text-xs text-muted-foreground">
-              {history.totalActive} active, {history.totalCancelled} cancelled
+              {history.totalActive} active, {history.totalFulfilled} given, {history.totalCancelled} cancelled
             </p>
           </div>
         </div>

@@ -1,10 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Package, ExternalLink, Users, Crown } from "lucide-react";
+import { Package, ExternalLink, Users, Crown, Gift } from "lucide-react";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import { Button } from "@/components/ui/button";
 import { ClaimStatusBadge } from "./claim-status-badge";
+import { markGiftGiven } from "@/lib/actions/claims";
+import { toast } from "sonner";
 import type { ClaimHistoryItem } from "@/lib/types/claims";
 
 interface ClaimHistoryItemCardProps {
@@ -12,7 +16,28 @@ interface ClaimHistoryItemCardProps {
 }
 
 export function ClaimHistoryItemCard({ claim }: ClaimHistoryItemCardProps) {
+  const [isMarking, setIsMarking] = useState(false);
   const imageUrl = claim.item.custom_image_url || claim.item.image_url;
+
+  async function handleMarkGiven(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    setIsMarking(true);
+    try {
+      const result = await markGiftGiven(claim.id, claim.type);
+
+      if ("error" in result) {
+        toast.error(result.error);
+      } else {
+        toast.success("Gift marked as given!");
+      }
+    } catch {
+      toast.error("Failed to mark gift as given");
+    } finally {
+      setIsMarking(false);
+    }
+  }
 
   return (
     <div className="relative flex items-start gap-4 p-4 rounded-xl hover:bg-muted/50 transition-colors group border border-border/50">
@@ -101,10 +126,26 @@ export function ClaimHistoryItemCard({ claim }: ClaimHistoryItemCardProps) {
 
         {/* Date */}
         <div className="mt-1 text-xs text-muted-foreground">
-          {claim.status === "cancelled" && claim.cancelled_at
-            ? `Cancelled ${new Date(claim.cancelled_at).toLocaleDateString()}`
-            : `Claimed ${new Date(claim.created_at).toLocaleDateString()}`}
+          {claim.status === "fulfilled" && claim.fulfilled_at
+            ? `Given ${new Date(claim.fulfilled_at).toLocaleDateString()}`
+            : claim.status === "cancelled" && claim.cancelled_at
+              ? `Cancelled ${new Date(claim.cancelled_at).toLocaleDateString()}`
+              : `Claimed ${new Date(claim.created_at).toLocaleDateString()}`}
         </div>
+
+        {/* Mark as given button for active claims */}
+        {claim.status === "active" && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleMarkGiven}
+            disabled={isMarking}
+            className="relative z-10 mt-2 gap-1.5"
+          >
+            <Gift className="w-3.5 h-3.5" />
+            {isMarking ? "Marking..." : "Mark as given"}
+          </Button>
+        )}
       </div>
 
       {/* External Link */}

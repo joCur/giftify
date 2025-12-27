@@ -54,8 +54,8 @@ export default async function FriendWishlistPage({
         .slice(0, 2)
     : "?";
 
-  // Filter out purchased items (including items confirmed as already owned)
-  const items = (wishlist.items || []).filter((item) => !item.is_purchased);
+  // Filter out purchased and received items (including items confirmed as already owned)
+  const items = (wishlist.items || []).filter((item) => !item.is_purchased && !item.is_received);
 
   // Map claims, split claims, and ownership flags to items
   const claimsMap = new Map(claims.map((c) => [c.item_id, c]));

@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, X, Users } from "lucide-react";
+import { Check, X, Users, Gift } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ClaimStatus } from "@/lib/types/claims";
 
@@ -28,6 +28,21 @@ export function ClaimStatusBadge({
       >
         <X className="w-3 h-3" />
         Cancelled
+      </span>
+    );
+  }
+
+  if (status === "fulfilled") {
+    return (
+      <span
+        className={cn(
+          "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
+          "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+          className
+        )}
+      >
+        <Gift className="w-3 h-3" />
+        Gift Given
       </span>
     );
   }

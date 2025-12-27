@@ -32,7 +32,7 @@ export async function generateInviteCode() {
         .single();
 
       if (!error && data) {
-        revalidatePath("/invites");
+        revalidatePath("/friends");
         return { success: true, code: data.code, expiresAt: data.expires_at };
       }
 
@@ -153,6 +153,5 @@ export async function consumeInviteAndBefriend(code: string, newUserId: string) 
   }
 
   revalidatePath("/friends");
-  revalidatePath("/invites");
   return { success: true };
 }

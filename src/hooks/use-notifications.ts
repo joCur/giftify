@@ -6,6 +6,7 @@ import {
   getNotifications,
   getUnreadCount,
   markNotificationRead,
+  markNotificationUnread,
   markAllNotificationsRead,
   archiveNotification as archiveNotificationAction,
   archiveAllReadNotifications,
@@ -62,6 +63,35 @@ export function useNotifications() {
       setUnreadCount((prev) => Math.max(0, prev - 1));
 
       const result = await markNotificationRead(notificationId);
+
+      if (result.error) {
+        // Revert on error
+        await fetchNotifications();
+      }
+
+      return result;
+    },
+    [fetchNotifications, notifications]
+  );
+
+  // Mark single notification as unread
+  const markAsUnread = useCallback(
+    async (notificationId: string) => {
+      // Find the notification to check if it's already unread
+      const notification = notifications.find((n) => n.id === notificationId);
+      if (!notification || !notification.is_read) {
+        return { success: true };
+      }
+
+      // Optimistic update
+      setNotifications((prev) =>
+        prev.map((n) =>
+          n.id === notificationId ? { ...n, is_read: false } : n
+        )
+      );
+      setUnreadCount((prev) => prev + 1);
+
+      const result = await markNotificationUnread(notificationId);
 
       if (result.error) {
         // Revert on error
@@ -204,26 +234,28 @@ export function useNotifications() {
           if (newStatus === "inbox") {
             setNotifications((prev) => {
               // Check if we already have this notification
-              const exists = prev.some((n) => n.id === notificationId);
-              if (!exists) {
+              const existing = prev.find((n) => n.id === notificationId);
+              if (!existing) {
                 // Refetch to get the full notification with relations
                 fetchNotifications();
                 return prev;
               }
+
+              // Only update unread count if local state differs from new state
+              // This prevents double-counting when optimistic updates already changed the count
+              const localIsRead = existing.is_read;
+              const newIsRead = payload.new.is_read;
+              if (localIsRead !== newIsRead) {
+                setUnreadCount((count) =>
+                  newIsRead ? Math.max(0, count - 1) : count + 1
+                );
+              }
+
               // Update existing notification
               return prev.map((n) =>
                 n.id === notificationId ? { ...n, ...payload.new } : n
               );
             });
-
-            // Update unread count if is_read changed
-            const wasRead = payload.old?.is_read;
-            const isRead = payload.new.is_read;
-            if (wasRead !== undefined && wasRead !== isRead) {
-              setUnreadCount((prev) =>
-                isRead ? Math.max(0, prev - 1) : prev + 1
-              );
-            }
           }
         }
       )
@@ -261,6 +293,7 @@ export function useNotifications() {
     unreadCount,
     isLoading,
     markAsRead,
+    markAsUnread,
     markAllAsRead,
     archiveNotification,
     archiveAllRead,

@@ -25,6 +25,7 @@ export function NotificationBell() {
     unreadCount,
     isLoading,
     markAsRead,
+    markAsUnread,
     markAllAsRead,
     archiveNotification,
     archiveAllRead,
@@ -108,6 +109,7 @@ export function NotificationBell() {
               isLoading={isLoading}
               view="inbox"
               onMarkAsRead={markAsRead}
+              onMarkAsUnread={markAsUnread}
               onMarkAllAsRead={markAllAsRead}
               onArchive={archiveNotification}
               onArchiveAllRead={archiveAllRead}

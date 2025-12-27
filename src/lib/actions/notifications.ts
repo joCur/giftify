@@ -95,6 +95,30 @@ export async function markNotificationRead(notificationId: string) {
 }
 
 /**
+ * Mark a single notification as unread
+ */
+export async function markNotificationUnread(notificationId: string) {
+  try {
+    const { supabase, user } = await requireAuth();
+
+    const { error } = await supabase
+      .from("notifications")
+      .update({ is_read: false })
+      .eq("id", notificationId)
+      .eq("user_id", user.id);
+
+    if (error) {
+      return { error: error.message };
+    }
+
+    revalidatePath("/", "layout");
+    return { success: true };
+  } catch {
+    return { error: "Not authenticated" };
+  }
+}
+
+/**
  * Mark all inbox notifications as read
  */
 export async function markAllNotificationsRead() {

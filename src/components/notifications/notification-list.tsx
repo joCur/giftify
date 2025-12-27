@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
-import { Bell, Gift, Users, UserPlus, Cake, Package, Check, Split, UserMinus, CircleCheck, CircleX, Flag, AlertCircle, Archive, ArchiveRestore } from "lucide-react";
+import { Bell, Gift, Users, UserPlus, Cake, Package, Check, Split, UserMinus, CircleCheck, CircleX, Flag, AlertCircle, Archive, ArchiveRestore, Circle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -15,6 +15,7 @@ interface NotificationListProps {
   isLoading: boolean;
   view: "inbox" | "archived";
   onMarkAsRead: (id: string) => Promise<{ success?: boolean; error?: string }>;
+  onMarkAsUnread?: (id: string) => Promise<{ success?: boolean; error?: string }>;
   onMarkAllAsRead?: () => Promise<{ success?: boolean; error?: string }>;
   onArchive?: (id: string) => Promise<{ success?: boolean; error?: string }>;
   onArchiveAllRead?: () => Promise<{ success?: boolean; error?: string }>;
@@ -105,6 +106,7 @@ export function NotificationList({
   isLoading,
   view,
   onMarkAsRead,
+  onMarkAsUnread,
   onMarkAllAsRead,
   onArchive,
   onArchiveAllRead,
@@ -182,6 +184,7 @@ export function NotificationList({
               notification={notification}
               view={view}
               onMarkAsRead={onMarkAsRead}
+              onMarkAsUnread={onMarkAsUnread}
               onArchive={onArchive}
               onUnarchive={onUnarchive}
             />
@@ -196,11 +199,12 @@ interface NotificationItemProps {
   notification: NotificationWithActor;
   view: "inbox" | "archived";
   onMarkAsRead: (id: string) => Promise<{ success?: boolean; error?: string }>;
+  onMarkAsUnread?: (id: string) => Promise<{ success?: boolean; error?: string }>;
   onArchive?: (id: string) => Promise<{ success?: boolean; error?: string }>;
   onUnarchive?: (id: string) => Promise<{ success?: boolean; error?: string }>;
 }
 
-function NotificationItem({ notification, view, onMarkAsRead, onArchive, onUnarchive }: NotificationItemProps) {
+function NotificationItem({ notification, view, onMarkAsRead, onMarkAsUnread, onArchive, onUnarchive }: NotificationItemProps) {
   const link = getNotificationLink(notification);
   const initials = notification.actor?.display_name
     ? notification.actor.display_name
@@ -227,6 +231,12 @@ function NotificationItem({ notification, view, onMarkAsRead, onArchive, onUnarc
     e.preventDefault();
     e.stopPropagation();
     onUnarchive?.(notification.id);
+  };
+
+  const handleMarkAsUnread = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onMarkAsUnread?.(notification.id);
   };
 
   return (
@@ -273,6 +283,17 @@ function NotificationItem({ notification, view, onMarkAsRead, onArchive, onUnarc
                   <Archive className="h-3.5 w-3.5 text-muted-foreground" />
                 </Button>
               )}
+              {view === "inbox" && notification.is_read && onMarkAsUnread && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={handleMarkAsUnread}
+                  aria-label="Mark as unread"
+                >
+                  <Circle className="h-3.5 w-3.5 text-muted-foreground" />
+                </Button>
+              )}
               {view === "archived" && onUnarchive && (
                 <Button
                   variant="ghost"
@@ -285,7 +306,9 @@ function NotificationItem({ notification, view, onMarkAsRead, onArchive, onUnarc
                 </Button>
               )}
               {!notification.is_read && view === "inbox" && (
-                <div className="h-2 w-2 rounded-full bg-primary mt-1" />
+                <div className="h-6 w-6 flex items-center justify-center">
+                  <div className="h-2 w-2 rounded-full bg-primary" />
+                </div>
               )}
             </div>
           </div>

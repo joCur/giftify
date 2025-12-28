@@ -24,6 +24,7 @@ import {
   PenLine,
 } from "lucide-react";
 import { ItemFormFields, type ItemFormValues } from "./item-form-fields";
+import { useDialogForm } from "@/lib/hooks/use-dialog-form";
 
 type AddItemMode = "url-entry" | "url-fetched" | "manual-entry";
 
@@ -36,6 +37,22 @@ interface LinkMetadata {
   url: string;
 }
 
+interface AddItemState {
+  url: string;
+  isFetching: boolean;
+  isAdding: boolean;
+  metadata: LinkMetadata | null;
+  mode: AddItemMode;
+}
+
+const DEFAULT_STATE: AddItemState = {
+  url: "",
+  isFetching: false,
+  isAdding: false,
+  metadata: null,
+  mode: "url-entry",
+};
+
 export function AddItemSheet({
   wishlistId,
   children,
@@ -43,24 +60,27 @@ export function AddItemSheet({
   wishlistId: string;
   children: React.ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
-  const [url, setUrl] = useState("");
-  const [isFetching, setIsFetching] = useState(false);
-  const [isAdding, setIsAdding] = useState(false);
-  const [metadata, setMetadata] = useState<LinkMetadata | null>(null);
-  const [mode, setMode] = useState<AddItemMode>("url-entry");
+  const [formKey, setFormKey] = useState(0);
+
+  const dialog = useDialogForm<AddItemState>({
+    defaultState: DEFAULT_STATE,
+    onReset: () => {
+      // Increment formKey to force remount of form fields
+      setFormKey((prev) => prev + 1);
+    },
+  });
 
   async function handleFetchMetadata() {
-    if (!url.trim()) {
+    if (!dialog.state.url.trim()) {
       toast.error("Please enter a URL");
       return;
     }
 
     // Auto-add https:// if scheme is missing
-    let normalizedUrl = url.trim();
+    let normalizedUrl = dialog.state.url.trim();
     if (!/^https?:\/\//i.test(normalizedUrl)) {
       normalizedUrl = `https://${normalizedUrl}`;
-      setUrl(normalizedUrl);
+      dialog.setState((prev) => ({ ...prev, url: normalizedUrl }));
     }
 
     // Basic URL validation
@@ -71,69 +91,70 @@ export function AddItemSheet({
       return;
     }
 
-    setIsFetching(true);
+    dialog.setState((prev) => ({ ...prev, isFetching: true }));
     const result = await fetchLinkMetadata(normalizedUrl);
 
     if ("error" in result) {
       toast.error(result.error);
-      setIsFetching(false);
+      dialog.setState((prev) => ({ ...prev, isFetching: false }));
       return;
     }
 
-    setMetadata(result);
-    setMode("url-fetched");
-    setIsFetching(false);
+    dialog.setState((prev) => ({
+      ...prev,
+      metadata: result,
+      mode: "url-fetched",
+      isFetching: false,
+    }));
   }
 
   async function handleAddItem(formData: FormData) {
-    setIsAdding(true);
+    dialog.setState((prev) => ({ ...prev, isAdding: true }));
 
     const result = await addItem(wishlistId, formData);
 
     if (result.error) {
       toast.error(result.error);
-      setIsAdding(false);
+      dialog.setState((prev) => ({ ...prev, isAdding: false }));
       return;
     }
 
     toast.success("Item added to wishlist!");
-    handleClose();
+    dialog.closeDialog();
   }
 
   function handleManualEntry() {
-    setMode("manual-entry");
-    setMetadata(null);
+    dialog.setState((prev) => ({
+      ...prev,
+      mode: "manual-entry",
+      metadata: null,
+    }));
   }
 
   function handleReset() {
-    setUrl("");
-    setMetadata(null);
-    setMode("url-entry");
-  }
-
-  function handleClose() {
-    setOpen(false);
-    setUrl("");
-    setMetadata(null);
-    setMode("url-entry");
-    setIsAdding(false);
+    dialog.setState((prev) => ({
+      ...prev,
+      url: "",
+      metadata: null,
+      mode: "url-entry",
+    }));
   }
 
   // Prepare default values for form fields
   const formDefaults: Partial<ItemFormValues> =
-    mode === "url-fetched" && metadata
+    dialog.state.mode === "url-fetched" && dialog.state.metadata
       ? {
-          url: metadata.url,
-          title: metadata.title,
-          description: metadata.description,
-          image_url: metadata.image_url,
-          price: metadata.price,
-          currency: metadata.currency,
+          url: dialog.state.metadata.url,
+          title: dialog.state.metadata.title,
+          description: dialog.state.metadata.description,
+          image_url: dialog.state.metadata.image_url,
+          price: dialog.state.metadata.price,
+          currency: dialog.state.metadata.currency,
         }
       : {};
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={dialog.open} onOpenChange={dialog.setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader className="px-6">
@@ -141,15 +162,15 @@ export function AddItemSheet({
             Add Item
           </DialogTitle>
           <DialogDescription>
-            {mode === "url-entry"
+            {dialog.state.mode === "url-entry"
               ? "Paste a link to automatically fetch product details, or enter manually."
-              : mode === "url-fetched"
+              : dialog.state.mode === "url-fetched"
                 ? "Review and edit the details below."
                 : "Enter the item details manually."}
           </DialogDescription>
         </DialogHeader>
 
-        {mode === "url-entry" ? (
+        {dialog.state.mode === "url-entry" ? (
           <div className="px-6 pb-6 space-y-4">
             <div className="space-y-3">
               <div className="flex items-center gap-2">
@@ -163,11 +184,13 @@ export function AddItemSheet({
               <div className="flex gap-2">
                 <Input
                   id="url"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
+                  value={dialog.state.url}
+                  onChange={(e) =>
+                    dialog.setState((prev) => ({ ...prev, url: e.target.value }))
+                  }
                   placeholder="https://example.com/product"
                   className="h-11 rounded-xl bg-muted/50 border-border/50 focus:bg-background transition-colors"
-                  disabled={isFetching}
+                  disabled={dialog.state.isFetching}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
@@ -177,10 +200,10 @@ export function AddItemSheet({
                 />
                 <Button
                   onClick={handleFetchMetadata}
-                  disabled={isFetching}
+                  disabled={dialog.state.isFetching}
                   className="rounded-xl shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/25 transition-all"
                 >
-                  {isFetching ? (
+                  {dialog.state.isFetching ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     <>
@@ -213,7 +236,7 @@ export function AddItemSheet({
               type="button"
               variant="outline"
               onClick={handleManualEntry}
-              disabled={isFetching}
+              disabled={dialog.state.isFetching}
               className="w-full rounded-xl"
             >
               <PenLine className="w-4 h-4 mr-2" />
@@ -221,15 +244,15 @@ export function AddItemSheet({
             </Button>
           </div>
         ) : (
-          <form action={handleAddItem} className="px-6 pb-6 space-y-5">
+          <form key={formKey} action={handleAddItem} className="px-6 pb-6 space-y-5">
             {/* Preview card - only show when we have fetched metadata with an image */}
-            {mode === "url-fetched" && metadata && (
+            {dialog.state.mode === "url-fetched" && dialog.state.metadata && (
               <div className="flex gap-4 p-4 rounded-xl bg-muted/50 border border-border/50">
                 <div className="relative w-20 h-20 rounded-lg overflow-hidden bg-gradient-to-br from-muted to-muted/50 shrink-0">
-                  {metadata.image_url ? (
+                  {dialog.state.metadata.image_url ? (
                     <Image
-                      src={metadata.image_url}
-                      alt={metadata.title}
+                      src={dialog.state.metadata.image_url}
+                      alt={dialog.state.metadata.title}
                       fill
                       className="object-cover"
                       sizes="80px"
@@ -241,15 +264,15 @@ export function AddItemSheet({
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium line-clamp-2">{metadata.title}</p>
-                  {metadata.price && (
+                  <p className="font-medium line-clamp-2">{dialog.state.metadata.title}</p>
+                  {dialog.state.metadata.price && (
                     <p className="text-sm text-primary font-medium mt-1">
-                      {metadata.currency} {metadata.price}
+                      {dialog.state.metadata.currency} {dialog.state.metadata.price}
                     </p>
                   )}
-                  {metadata.url && (
+                  {dialog.state.metadata.url && (
                     <p className="text-xs text-muted-foreground mt-1 truncate">
-                      {new URL(metadata.url).hostname}
+                      {new URL(dialog.state.metadata.url).hostname}
                     </p>
                   )}
                 </div>
@@ -259,8 +282,8 @@ export function AddItemSheet({
             {/* Shared form fields */}
             <ItemFormFields
               defaultValues={formDefaults}
-              disabled={isAdding}
-              showUrlField={mode === "manual-entry"}
+              disabled={dialog.state.isAdding}
+              showUrlField={dialog.state.mode === "manual-entry"}
               wishlistId={wishlistId}
             />
 
@@ -269,17 +292,17 @@ export function AddItemSheet({
                 type="button"
                 variant="outline"
                 onClick={handleReset}
-                disabled={isAdding}
+                disabled={dialog.state.isAdding}
                 className="rounded-xl"
               >
-                {mode === "manual-entry" ? "Back" : "Change URL"}
+                {dialog.state.mode === "manual-entry" ? "Back" : "Change URL"}
               </Button>
               <Button
                 type="submit"
-                disabled={isAdding}
+                disabled={dialog.state.isAdding}
                 className="rounded-xl shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/25 transition-all"
               >
-                {isAdding ? (
+                {dialog.state.isAdding ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Adding...

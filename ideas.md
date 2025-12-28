@@ -7,8 +7,10 @@
 - localization
 - localization of notifications
 - public wishlist, sharable by link, where anyone can claim an item (maybe)
-- friend marked items as received or purchased, but those are still counted on the friend wishlist list page in the wishlist item count
 - clicking on an item in the claims history opens the wishlist it is/was part of not showing the item, this is problematic beause the item is no longer visible in the list, when it is marked as received.
-- after cancelling claim claiming again is not possible
 - sentry
 - feature-requests/issues
+- closing dialogs does not clean them
+- the web app does not feel reactive at all on mobile devices as pwa, can we do anything about it? No reactions on button presses, no loading animations between actions, ...
+- notifications on device (pwa)
+- rename from giftify to gifty

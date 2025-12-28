@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useEffect, useTransition } from "react";
 import { UserPlus, Search, Loader2 } from "lucide-react";
+import { useDialogForm } from "@/lib/hooks/use-dialog-form";
 import {
   Dialog,
   DialogContent,
@@ -29,41 +30,56 @@ interface Friend {
   avatar_url: string | null;
 }
 
+interface AddCollaboratorState {
+  friends: Friend[];
+  searchQuery: string;
+  isLoading: boolean;
+  addingId: string | null;
+}
+
+const DEFAULT_STATE: AddCollaboratorState = {
+  friends: [],
+  searchQuery: "",
+  isLoading: false,
+  addingId: null,
+};
+
 export function AddCollaboratorDialog({
   wishlistId,
   existingCollaboratorIds,
   children,
 }: AddCollaboratorDialogProps) {
-  const [open, setOpen] = useState(false);
-  const [friends, setFriends] = useState<Friend[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const dialog = useDialogForm<AddCollaboratorState>({
+    defaultState: DEFAULT_STATE,
+  });
   const [isPending, startTransition] = useTransition();
-  const [addingId, setAddingId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (open) {
-      setIsLoading(true);
+    if (dialog.open) {
+      dialog.setState((prev) => ({ ...prev, isLoading: true }));
       getAvailableFriendsForCollaboration(wishlistId).then((result) => {
         if ("data" in result) {
-          setFriends(result.data || []);
+          dialog.setState((prev) => ({
+            ...prev,
+            friends: result.data || [],
+            isLoading: false,
+          }));
+        } else {
+          dialog.setState((prev) => ({ ...prev, isLoading: false }));
         }
-        setIsLoading(false);
       });
-    } else {
-      setSearchQuery("");
     }
-  }, [open, wishlistId]);
+  }, [dialog.open, wishlistId, dialog]);
 
-  const filteredFriends = friends.filter(
+  const filteredFriends = dialog.state.friends.filter(
     (f) =>
       !existingCollaboratorIds.includes(f.id) &&
-      (f.display_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        searchQuery === "")
+      (f.display_name?.toLowerCase().includes(dialog.state.searchQuery.toLowerCase()) ||
+        dialog.state.searchQuery === "")
   );
 
   const handleAdd = async (friendId: string) => {
-    setAddingId(friendId);
+    dialog.setState((prev) => ({ ...prev, addingId: friendId }));
 
     startTransition(async () => {
       const result = await addCollaborator(wishlistId, friendId);
@@ -73,15 +89,18 @@ export function AddCollaboratorDialog({
       } else {
         toast.success("Collaborator added!");
         // Remove the friend from the local list
-        setFriends((prev) => prev.filter((f) => f.id !== friendId));
+        dialog.setState((prev) => ({
+          ...prev,
+          friends: prev.friends.filter((f) => f.id !== friendId),
+        }));
       }
 
-      setAddingId(null);
+      dialog.setState((prev) => ({ ...prev, addingId: null }));
     });
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={dialog.open} onOpenChange={dialog.setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -98,22 +117,24 @@ export function AddCollaboratorDialog({
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder="Search friends..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={dialog.state.searchQuery}
+              onChange={(e) =>
+                dialog.setState((prev) => ({ ...prev, searchQuery: e.target.value }))
+              }
               className="pl-9 rounded-xl"
             />
           </div>
 
           <div className="max-h-[300px] overflow-y-auto space-y-2">
-            {isLoading ? (
+            {dialog.state.isLoading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
               </div>
             ) : filteredFriends.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">
-                {searchQuery
+                {dialog.state.searchQuery
                   ? "No friends found"
-                  : friends.length === 0
+                  : dialog.state.friends.length === 0
                   ? "You don't have any friends who can be added"
                   : "All your friends are already collaborators"}
               </p>
@@ -137,10 +158,10 @@ export function AddCollaboratorDialog({
                   <Button
                     size="sm"
                     onClick={() => handleAdd(friend.id)}
-                    disabled={isPending || addingId === friend.id}
+                    disabled={isPending || dialog.state.addingId === friend.id}
                     className="rounded-lg shrink-0"
                   >
-                    {addingId === friend.id ? (
+                    {dialog.state.addingId === friend.id ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
                       <>

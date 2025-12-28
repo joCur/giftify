@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useEffect, useTransition } from "react";
 import { Users, Search, Loader2, Check } from "lucide-react";
+import { useDialogForm } from "@/lib/hooks/use-dialog-form";
 import {
   Dialog,
   DialogContent,
@@ -31,67 +32,82 @@ interface Friend {
   avatar_url: string | null;
 }
 
+interface ConvertToJointState {
+  friends: Friend[];
+  selectedIds: string[];
+  searchQuery: string;
+  isLoading: boolean;
+}
+
+const DEFAULT_STATE: ConvertToJointState = {
+  friends: [],
+  selectedIds: [],
+  searchQuery: "",
+  isLoading: false,
+};
+
 export function ConvertToJointDialog({
   wishlistId,
   wishlistName,
   children,
 }: ConvertToJointDialogProps) {
-  const [open, setOpen] = useState(false);
-  const [friends, setFriends] = useState<Friend[]>([]);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const dialog = useDialogForm<ConvertToJointState>({
+    defaultState: DEFAULT_STATE,
+  });
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    if (open) {
-      setIsLoading(true);
+    if (dialog.open) {
+      dialog.setState((prev) => ({ ...prev, isLoading: true }));
       getAvailableFriendsForCollaboration(wishlistId).then((result) => {
         if ("data" in result) {
-          setFriends(result.data || []);
+          dialog.setState((prev) => ({
+            ...prev,
+            friends: result.data || [],
+            isLoading: false,
+          }));
+        } else {
+          dialog.setState((prev) => ({ ...prev, isLoading: false }));
         }
-        setIsLoading(false);
       });
-    } else {
-      setSearchQuery("");
-      setSelectedIds([]);
     }
-  }, [open, wishlistId]);
+  }, [dialog.open, wishlistId, dialog]);
 
-  const filteredFriends = friends.filter(
+  const filteredFriends = dialog.state.friends.filter(
     (f) =>
-      f.display_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      searchQuery === ""
+      f.display_name?.toLowerCase().includes(dialog.state.searchQuery.toLowerCase()) ||
+      dialog.state.searchQuery === ""
   );
 
   const handleToggle = (friendId: string) => {
-    setSelectedIds((prev) =>
-      prev.includes(friendId)
-        ? prev.filter((id) => id !== friendId)
-        : [...prev, friendId]
-    );
+    dialog.setState((prev) => ({
+      ...prev,
+      selectedIds: prev.selectedIds.includes(friendId)
+        ? prev.selectedIds.filter((id) => id !== friendId)
+        : [...prev.selectedIds, friendId],
+    }));
   };
 
   const handleConvert = () => {
-    if (selectedIds.length === 0) {
+    if (dialog.state.selectedIds.length === 0) {
       toast.error("Select at least one friend");
       return;
     }
 
     startTransition(async () => {
-      const result = await convertToJointWishlist(wishlistId, selectedIds);
+      const result = await convertToJointWishlist(wishlistId, dialog.state.selectedIds);
 
       if (result.error) {
         toast.error(result.error);
       } else {
         toast.success("Wishlist converted to joint!");
-        setOpen(false);
+        dialog.closeDialog();
       }
     });
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={dialog.open} onOpenChange={dialog.setOpen}>
       <DialogTrigger asChild>
         {children || (
           <Button variant="outline" className="rounded-xl">
@@ -116,24 +132,26 @@ export function ConvertToJointDialog({
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder="Search friends..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={dialog.state.searchQuery}
+              onChange={(e) =>
+                dialog.setState((prev) => ({ ...prev, searchQuery: e.target.value }))
+              }
               className="pl-9 rounded-xl"
             />
           </div>
 
           <div className="max-h-[300px] overflow-y-auto space-y-2">
-            {isLoading ? (
+            {dialog.state.isLoading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
               </div>
             ) : filteredFriends.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">
-                {searchQuery ? "No friends found" : "You don't have any friends yet"}
+                {dialog.state.searchQuery ? "No friends found" : "You don't have any friends yet"}
               </p>
             ) : (
               filteredFriends.map((friend) => {
-                const isSelected = selectedIds.includes(friend.id);
+                const isSelected = dialog.state.selectedIds.includes(friend.id);
                 return (
                   <div
                     key={friend.id}
@@ -175,14 +193,14 @@ export function ConvertToJointDialog({
         <DialogFooter className="gap-2 sm:gap-0">
           <Button
             variant="outline"
-            onClick={() => setOpen(false)}
+            onClick={() => dialog.closeDialog()}
             className="rounded-xl"
           >
             Cancel
           </Button>
           <Button
             onClick={handleConvert}
-            disabled={isPending || selectedIds.length === 0}
+            disabled={isPending || dialog.state.selectedIds.length === 0}
             className="rounded-xl"
           >
             {isPending ? (
@@ -193,7 +211,7 @@ export function ConvertToJointDialog({
             ) : (
               <>
                 <Users className="w-4 h-4 mr-2" />
-                Add {selectedIds.length} Co-owner{selectedIds.length !== 1 ? "s" : ""}
+                Add {dialog.state.selectedIds.length} Co-owner{dialog.state.selectedIds.length !== 1 ? "s" : ""}
               </>
             )}
           </Button>

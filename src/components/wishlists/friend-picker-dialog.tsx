@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,6 +19,7 @@ import {
 } from "@/lib/actions/wishlist-visibility";
 import type { SelectableFriend } from "@/lib/supabase/types.custom";
 import { getInitials } from "@/lib/utils";
+import { useDialogForm } from "@/lib/hooks/use-dialog-form";
 
 interface FriendPickerDialogProps {
   wishlistId: string;
@@ -31,6 +32,20 @@ interface FriendPickerDialogProps {
   onSave?: (count: number) => void;
 }
 
+interface FriendPickerState {
+  isLoading: boolean;
+  isSaving: boolean;
+  friends: SelectableFriend[];
+  searchQuery: string;
+}
+
+const DEFAULT_STATE: FriendPickerState = {
+  isLoading: true,
+  isSaving: false,
+  friends: [],
+  searchQuery: "",
+};
+
 export function FriendPickerDialog({
   wishlistId,
   children,
@@ -38,66 +53,76 @@ export function FriendPickerDialog({
   onSelect,
   onSave,
 }: FriendPickerDialogProps) {
-  const [open, setOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [friends, setFriends] = useState<SelectableFriend[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
+  const dialog = useDialogForm<FriendPickerState>({
+    defaultState: DEFAULT_STATE,
+  });
 
   // Determine if we're in "local" mode (controlled by parent) or "DB" mode
   const isLocalMode = selectedFriendIds !== undefined;
 
   const loadFriends = useCallback(async () => {
-    setIsLoading(true);
+    dialog.setState((prev) => ({ ...prev, isLoading: true }));
     const result = await getFriendsWithSelectionState(wishlistId);
 
     if (result.error) {
       toast.error(result.error);
-      setOpen(false);
+      dialog.closeDialog();
     } else {
       // In local mode, use the provided selectedFriendIds for selection state
       if (isLocalMode) {
         const selectedSet = new Set(selectedFriendIds);
-        setFriends(
-          (result.data || []).map((f) => ({
+        dialog.setState((prev) => ({
+          ...prev,
+          friends: (result.data || []).map((f) => ({
             ...f,
             isSelected: selectedSet.has(f.id),
-          }))
-        );
+          })),
+          isLoading: false,
+        }));
       } else {
-        setFriends(result.data || []);
+        dialog.setState((prev) => ({
+          ...prev,
+          friends: result.data || [],
+          isLoading: false,
+        }));
       }
     }
-    setIsLoading(false);
-  }, [wishlistId, isLocalMode, selectedFriendIds]);
+  }, [wishlistId, isLocalMode, selectedFriendIds, dialog]);
 
   // Load friends when dialog opens
   useEffect(() => {
-    if (open) {
+    if (dialog.open) {
       loadFriends();
     }
-  }, [open, loadFriends]);
+  }, [dialog.open, loadFriends]);
 
   function toggleFriend(friendId: string) {
-    setFriends((prev) =>
-      prev.map((friend) =>
+    dialog.setState((prev) => ({
+      ...prev,
+      friends: prev.friends.map((friend) =>
         friend.id === friendId
           ? { ...friend, isSelected: !friend.isSelected }
           : friend
-      )
-    );
+      ),
+    }));
   }
 
   function selectAll() {
-    setFriends((prev) => prev.map((friend) => ({ ...friend, isSelected: true })));
+    dialog.setState((prev) => ({
+      ...prev,
+      friends: prev.friends.map((friend) => ({ ...friend, isSelected: true })),
+    }));
   }
 
   function deselectAll() {
-    setFriends((prev) => prev.map((friend) => ({ ...friend, isSelected: false })));
+    dialog.setState((prev) => ({
+      ...prev,
+      friends: prev.friends.map((friend) => ({ ...friend, isSelected: false })),
+    }));
   }
 
   async function handleSave() {
-    const selectedIds = friends.filter((f) => f.isSelected).map((f) => f.id);
+    const selectedIds = dialog.state.friends.filter((f) => f.isSelected).map((f) => f.id);
 
     // In local mode, just update parent state without saving to DB
     if (isLocalMode) {
@@ -107,16 +132,17 @@ export function FriendPickerDialog({
           ? "No friends selected"
           : `${selectedIds.length} ${selectedIds.length === 1 ? "friend" : "friends"} selected`
       );
-      setOpen(false);
+      dialog.closeDialog();
       return;
     }
 
     // In DB mode, save to database
-    setIsSaving(true);
+    dialog.setState((prev) => ({ ...prev, isSaving: true }));
     const result = await updateWishlistSelectedFriends(wishlistId, selectedIds);
 
     if (result.error) {
       toast.error(result.error);
+      dialog.setState((prev) => ({ ...prev, isSaving: false }));
     } else {
       toast.success(
         selectedIds.length === 0
@@ -124,16 +150,15 @@ export function FriendPickerDialog({
           : `Visible to ${selectedIds.length} ${selectedIds.length === 1 ? "friend" : "friends"}`
       );
       onSave?.(selectedIds.length);
-      setOpen(false);
+      dialog.closeDialog();
     }
-    setIsSaving(false);
   }
 
-  const filteredFriends = friends.filter((friend) =>
-    friend.display_name?.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredFriends = dialog.state.friends.filter((friend) =>
+    friend.display_name?.toLowerCase().includes(dialog.state.searchQuery.toLowerCase())
   );
 
-  const selectedCount = friends.filter((f) => f.isSelected).length;
+  const selectedCount = dialog.state.friends.filter((f) => f.isSelected).length;
 
   // Generate gradients for avatars
   const gradients = [
@@ -146,7 +171,7 @@ export function FriendPickerDialog({
   ];
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={dialog.open} onOpenChange={dialog.setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-[480px] overflow-hidden">
         {/* Header */}
@@ -174,27 +199,29 @@ export function FriendPickerDialog({
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="Search friends..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                disabled={isLoading}
+                value={dialog.state.searchQuery}
+                onChange={(e) =>
+                  dialog.setState((prev) => ({ ...prev, searchQuery: e.target.value }))
+                }
+                disabled={dialog.state.isLoading}
                 className="h-10 pl-9 rounded-xl bg-muted/50 border-border/50 focus:bg-background transition-colors"
               />
             </div>
-            {!isLoading && friends.length > 0 && (
+            {!dialog.state.isLoading && dialog.state.friends.length > 0 && (
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={selectedCount === friends.length ? deselectAll : selectAll}
+                onClick={selectedCount === dialog.state.friends.length ? deselectAll : selectAll}
                 className="rounded-xl text-xs shrink-0"
               >
-                {selectedCount === friends.length ? "Deselect all" : "Select all"}
+                {selectedCount === dialog.state.friends.length ? "Deselect all" : "Select all"}
               </Button>
             )}
           </div>
 
           {/* Friend list */}
-          {isLoading ? (
+          {dialog.state.isLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
@@ -204,7 +231,7 @@ export function FriendPickerDialog({
                 <Users className="w-8 h-8 text-muted-foreground" />
               </div>
               <p className="text-sm text-muted-foreground">
-                {searchQuery
+                {dialog.state.searchQuery
                   ? "No friends match your search"
                   : "No friends yet. Add friends first!"}
               </p>
@@ -277,10 +304,10 @@ export function FriendPickerDialog({
           {/* Save button */}
           <Button
             onClick={handleSave}
-            disabled={isSaving || isLoading}
+            disabled={dialog.state.isSaving || dialog.state.isLoading}
             className="w-full h-11 rounded-xl text-base font-semibold shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/25 transition-all"
           >
-            {isSaving ? (
+            {dialog.state.isSaving ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Saving...

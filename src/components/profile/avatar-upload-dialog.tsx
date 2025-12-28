@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useRef, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -15,6 +15,7 @@ import { uploadAvatar, removeAvatar } from "@/lib/actions/avatar";
 import { toast } from "sonner";
 import { Camera, Upload, Trash2, Loader2, ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useDialogForm } from "@/lib/hooks/use-dialog-form";
 
 interface AvatarUploadDialogProps {
   avatarUrl?: string | null;
@@ -25,35 +26,37 @@ interface AvatarUploadDialogProps {
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
+interface AvatarUploadState {
+  isUploading: boolean;
+  isRemoving: boolean;
+  preview: string | null;
+  selectedFile: File | null;
+  isDragging: boolean;
+}
+
+const DEFAULT_STATE: AvatarUploadState = {
+  isUploading: false,
+  isRemoving: false,
+  preview: null,
+  selectedFile: null,
+  isDragging: false,
+};
+
 export function AvatarUploadDialog({
   avatarUrl,
   email,
   displayName,
 }: AvatarUploadDialogProps) {
-  const [open, setOpen] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [isRemoving, setIsRemoving] = useState(false);
-  const [preview, setPreview] = useState<string | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
+  const dialog = useDialogForm<AvatarUploadState>({
+    defaultState: DEFAULT_STATE,
+    onReset: () => {
+      // Revoke object URL to prevent memory leaks
+      if (dialog.state.preview) {
+        URL.revokeObjectURL(dialog.state.preview);
+      }
+    },
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const resetState = useCallback(() => {
-    // Revoke object URL to prevent memory leaks
-    if (preview) {
-      URL.revokeObjectURL(preview);
-    }
-    setPreview(null);
-    setSelectedFile(null);
-    setIsDragging(false);
-  }, [preview]);
-
-  const handleOpenChange = (newOpen: boolean) => {
-    setOpen(newOpen);
-    if (!newOpen) {
-      resetState();
-    }
-  };
 
   const validateFile = (file: File): string | null => {
     if (!ACCEPTED_TYPES.includes(file.type)) {
@@ -73,15 +76,17 @@ export function AvatarUploadDialog({
     }
 
     // Revoke previous preview URL if exists
-    if (preview) {
-      URL.revokeObjectURL(preview);
+    if (dialog.state.preview) {
+      URL.revokeObjectURL(dialog.state.preview);
     }
-
-    setSelectedFile(file);
 
     // Create preview URL using createObjectURL (more memory efficient than FileReader)
     const objectUrl = URL.createObjectURL(file);
-    setPreview(objectUrl);
+    dialog.setState((prev) => ({
+      ...prev,
+      selectedFile: file,
+      preview: objectUrl,
+    }));
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -93,17 +98,17 @@ export function AvatarUploadDialog({
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragging(true);
+    dialog.setState((prev) => ({ ...prev, isDragging: true }));
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragging(false);
+    dialog.setState((prev) => ({ ...prev, isDragging: false }));
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragging(false);
+    dialog.setState((prev) => ({ ...prev, isDragging: false }));
 
     const file = e.dataTransfer.files?.[0];
     if (file) {
@@ -112,45 +117,41 @@ export function AvatarUploadDialog({
   };
 
   const handleUpload = async () => {
-    if (!selectedFile) return;
+    if (!dialog.state.selectedFile) return;
 
-    setIsUploading(true);
+    dialog.setState((prev) => ({ ...prev, isUploading: true }));
     const formData = new FormData();
-    formData.append("file", selectedFile);
+    formData.append("file", dialog.state.selectedFile);
 
     const result = await uploadAvatar(formData);
 
     if (result.error) {
       toast.error(result.error);
+      dialog.setState((prev) => ({ ...prev, isUploading: false }));
     } else {
       toast.success("Profile picture updated");
-      setOpen(false);
-      resetState();
+      dialog.closeDialog();
     }
-
-    setIsUploading(false);
   };
 
   const handleRemove = async () => {
-    setIsRemoving(true);
+    dialog.setState((prev) => ({ ...prev, isRemoving: true }));
 
     const result = await removeAvatar();
 
     if (result.error) {
       toast.error(result.error);
+      dialog.setState((prev) => ({ ...prev, isRemoving: false }));
     } else {
       toast.success("Profile picture removed");
-      setOpen(false);
-      resetState();
+      dialog.closeDialog();
     }
-
-    setIsRemoving(false);
   };
 
-  const isLoading = isUploading || isRemoving;
+  const isLoading = dialog.state.isUploading || dialog.state.isRemoving;
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={dialog.open} onOpenChange={dialog.setOpen}>
       <DialogTrigger asChild>
         <button
           className="group relative"
@@ -196,17 +197,17 @@ export function AvatarUploadDialog({
             onDrop={handleDrop}
             className={cn(
               "relative flex flex-col items-center justify-center gap-4 p-8 border-2 border-dashed rounded-2xl cursor-pointer transition-colors",
-              isDragging
+              dialog.state.isDragging
                 ? "border-primary bg-primary/5"
                 : "border-border/50 hover:border-primary/50 hover:bg-muted/30"
             )}
           >
-            {preview ? (
+            {dialog.state.preview ? (
               <div className="relative">
                 <div className="w-32 h-32 rounded-2xl overflow-hidden bg-muted">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={preview}
+                    src={dialog.state.preview}
                     alt="Preview"
                     className="w-full h-full object-cover"
                   />
@@ -217,7 +218,7 @@ export function AvatarUploadDialog({
                   size="sm"
                   onClick={(e) => {
                     e.stopPropagation();
-                    resetState();
+                    dialog.resetState();
                     if (fileInputRef.current) {
                       fileInputRef.current.value = "";
                     }
@@ -255,13 +256,13 @@ export function AvatarUploadDialog({
 
           {/* Actions */}
           <div className="flex flex-col gap-3">
-            {preview ? (
+            {dialog.state.preview ? (
               <Button
                 onClick={handleUpload}
                 disabled={isLoading}
                 className="w-full rounded-xl"
               >
-                {isUploading ? (
+                {dialog.state.isUploading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Uploading...
@@ -292,7 +293,7 @@ export function AvatarUploadDialog({
                 disabled={isLoading}
                 className="w-full rounded-xl text-destructive hover:text-destructive hover:bg-destructive/10"
               >
-                {isRemoving ? (
+                {dialog.state.isRemoving ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Removing...

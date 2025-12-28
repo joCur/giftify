@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { Loader2, Pencil } from "lucide-react";
 import type { WishlistItem } from "@/lib/supabase/types.custom";
 import { ItemFormFields } from "./item-form-fields";
+import { useDialogReset } from "@/lib/hooks/use-dialog-reset";
 
 interface EditItemDialogProps {
   item: WishlistItem;
@@ -30,6 +31,16 @@ export function EditItemDialog({
   onOpenChange,
 }: EditItemDialogProps) {
   const [isUpdating, setIsUpdating] = useState(false);
+  const [formKey, setFormKey] = useState(0);
+
+  // Automatically reset state when dialog closes
+  useDialogReset({
+    open,
+    onReset: () => {
+      setIsUpdating(false);
+      setFormKey((prev) => prev + 1);
+    },
+  });
 
   async function handleUpdate(formData: FormData) {
     setIsUpdating(true);
@@ -38,11 +49,11 @@ export function EditItemDialog({
 
     if (result.error) {
       toast.error(result.error);
+      setIsUpdating(false);
     } else {
       toast.success("Item updated");
       onOpenChange(false);
     }
-    setIsUpdating(false);
   }
 
   return (
@@ -56,7 +67,7 @@ export function EditItemDialog({
           <DialogDescription>Update the item details.</DialogDescription>
         </DialogHeader>
 
-        <form action={handleUpdate} className="px-6 pb-6 space-y-5">
+        <form key={formKey} action={handleUpdate} className="px-6 pb-6 space-y-5">
           <ItemFormFields
             defaultValues={{
               title: item.title,

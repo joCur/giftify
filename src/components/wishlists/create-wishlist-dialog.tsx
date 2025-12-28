@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,6 +15,7 @@ import { createWishlist } from "@/lib/actions/wishlists";
 import { toast } from "sonner";
 import { Loader2, Lock, Users, UserCheck, Gift, Sparkles, Check } from "lucide-react";
 import type { WishlistPrivacy } from "@/lib/supabase/types.custom";
+import { useDialogForm } from "@/lib/hooks/use-dialog-form";
 
 const privacyOptions: {
   value: WishlistPrivacy;
@@ -47,27 +47,36 @@ const privacyOptions: {
   },
 ];
 
+interface CreateWishlistState {
+  isLoading: boolean;
+  privacy: WishlistPrivacy;
+}
+
+const DEFAULT_STATE: CreateWishlistState = {
+  isLoading: false,
+  privacy: "friends",
+};
+
 export function CreateWishlistDialog({ children }: { children: React.ReactNode }) {
-  const [open, setOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [privacy, setPrivacy] = useState<WishlistPrivacy>("friends");
   const router = useRouter();
+  const dialog = useDialogForm<CreateWishlistState>({
+    defaultState: DEFAULT_STATE,
+  });
 
   async function handleSubmit(formData: FormData) {
-    setIsLoading(true);
-    formData.set("privacy", privacy);
+    dialog.setState((prev) => ({ ...prev, isLoading: true }));
+    formData.set("privacy", dialog.state.privacy);
 
     const result = await createWishlist(formData);
 
     if (result.error) {
       toast.error(result.error);
-      setIsLoading(false);
+      dialog.setState((prev) => ({ ...prev, isLoading: false }));
       return;
     }
 
     toast.success("Wishlist created!");
-    setOpen(false);
-    setIsLoading(false);
+    dialog.closeDialog();
 
     if (result.data) {
       router.push(`/wishlists/${result.data.id}`);
@@ -75,7 +84,7 @@ export function CreateWishlistDialog({ children }: { children: React.ReactNode }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={dialog.open} onOpenChange={dialog.setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-[440px] overflow-hidden">
         <form action={handleSubmit} className="flex flex-col">
@@ -108,7 +117,7 @@ export function CreateWishlistDialog({ children }: { children: React.ReactNode }
                 name="name"
                 placeholder="Birthday 2024"
                 required
-                disabled={isLoading}
+                disabled={dialog.state.isLoading}
                 className="h-11 rounded-xl bg-muted/50 border-border/50 focus:bg-background transition-colors"
               />
             </div>
@@ -122,7 +131,7 @@ export function CreateWishlistDialog({ children }: { children: React.ReactNode }
                 id="description"
                 name="description"
                 placeholder="Things I'd love for my birthday"
-                disabled={isLoading}
+                disabled={dialog.state.isLoading}
                 className="h-11 rounded-xl bg-muted/50 border-border/50 focus:bg-background transition-colors"
               />
             </div>
@@ -132,13 +141,15 @@ export function CreateWishlistDialog({ children }: { children: React.ReactNode }
               <Label className="text-sm font-medium">Privacy</Label>
               <div className="grid gap-2">
                 {privacyOptions.map((option) => {
-                  const isSelected = privacy === option.value;
+                  const isSelected = dialog.state.privacy === option.value;
                   return (
                     <button
                       key={option.value}
                       type="button"
-                      onClick={() => setPrivacy(option.value)}
-                      disabled={isLoading}
+                      onClick={() =>
+                        dialog.setState((prev) => ({ ...prev, privacy: option.value }))
+                      }
+                      disabled={dialog.state.isLoading}
                       className={`relative flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all ${
                         isSelected
                           ? "border-primary bg-primary/5"
@@ -170,7 +181,7 @@ export function CreateWishlistDialog({ children }: { children: React.ReactNode }
                   );
                 })}
               </div>
-              {privacy === "selected_friends" && (
+              {dialog.state.privacy === "selected_friends" && (
                 <p className="text-xs text-muted-foreground p-3 rounded-lg bg-blue-500/5 border border-blue-500/20">
                   You can choose specific friends after creating the wishlist
                 </p>
@@ -182,10 +193,10 @@ export function CreateWishlistDialog({ children }: { children: React.ReactNode }
           <div className="px-5 sm:px-6 py-5 mt-2 border-t border-border/50 bg-background pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:pb-5">
             <Button
               type="submit"
-              disabled={isLoading}
+              disabled={dialog.state.isLoading}
               className="w-full h-11 rounded-xl text-base font-semibold shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/25 transition-all"
             >
-              {isLoading ? (
+              {dialog.state.isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Creating...

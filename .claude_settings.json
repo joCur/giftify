@@ -1,0 +1,39 @@
+{
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": true
+  },
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Read(./**)",
+      "Write(./**)",
+      "Edit(./**)",
+      "Glob(./**)",
+      "Grep(./**)",
+      "Read(/Users/jonascurth/Documents/git/giftify/.auto-claude/worktrees/tasks/003-restrict-access-to-unrestricted-tables-views-for-b/**)",
+      "Write(/Users/jonascurth/Documents/git/giftify/.auto-claude/worktrees/tasks/003-restrict-access-to-unrestricted-tables-views-for-b/**)",
+      "Edit(/Users/jonascurth/Documents/git/giftify/.auto-claude/worktrees/tasks/003-restrict-access-to-unrestricted-tables-views-for-b/**)",
+      "Glob(/Users/jonascurth/Documents/git/giftify/.auto-claude/worktrees/tasks/003-restrict-access-to-unrestricted-tables-views-for-b/**)",
+      "Grep(/Users/jonascurth/Documents/git/giftify/.auto-claude/worktrees/tasks/003-restrict-access-to-unrestricted-tables-views-for-b/**)",
+      "Read(/Users/jonascurth/Documents/git/giftify/.auto-claude/worktrees/tasks/003-restrict-access-to-unrestricted-tables-views-for-b/.auto-claude/specs/003-restrict-access-to-unrestricted-tables-views-for-b/**)",
+      "Write(/Users/jonascurth/Documents/git/giftify/.auto-claude/worktrees/tasks/003-restrict-access-to-unrestricted-tables-views-for-b/.auto-claude/specs/003-restrict-access-to-unrestricted-tables-views-for-b/**)",
+      "Edit(/Users/jonascurth/Documents/git/giftify/.auto-claude/worktrees/tasks/003-restrict-access-to-unrestricted-tables-views-for-b/.auto-claude/specs/003-restrict-access-to-unrestricted-tables-views-for-b/**)",
+      "Read(/Users/jonascurth/Documents/git/giftify/.auto-claude/**)",
+      "Write(/Users/jonascurth/Documents/git/giftify/.auto-claude/**)",
+      "Edit(/Users/jonascurth/Documents/git/giftify/.auto-claude/**)",
+      "Glob(/Users/jonascurth/Documents/git/giftify/.auto-claude/**)",
+      "Grep(/Users/jonascurth/Documents/git/giftify/.auto-claude/**)",
+      "Bash(*)",
+      "WebFetch(*)",
+      "WebSearch(*)",
+      "mcp__context7__resolve-library-id(*)",
+      "mcp__context7__get-library-docs(*)",
+      "mcp__graphiti-memory__search_nodes(*)",
+      "mcp__graphiti-memory__search_facts(*)",
+      "mcp__graphiti-memory__add_episode(*)",
+      "mcp__graphiti-memory__get_episodes(*)",
+      "mcp__graphiti-memory__get_entity_edge(*)"
+    ]
+  }
+}

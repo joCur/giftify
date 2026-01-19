@@ -267,9 +267,10 @@ export async function initiateSplitClaim(
 
       if (item && wishlist) {
         // Calculate cost per person if price exists
+        const priceNum = item.price ? parseFloat(item.price) : null;
         const costPerPerson =
-          item.price && targetParticipants > 0
-            ? Math.ceil(item.price / targetParticipants)
+          priceNum && targetParticipants > 0
+            ? Math.ceil(priceNum / targetParticipants)
             : undefined;
 
         // Notify friends who can view this wishlist (respects privacy)
@@ -278,7 +279,7 @@ export async function initiateSplitClaim(
           item_id: item.id,
           item_title: item.title,
           item_image_url: item.image_url,
-          item_price: item.price,
+          item_price: priceNum,
           item_currency: item.currency,
           wishlist_id: wishlist.id,
           wishlist_name: wishlist.name,
@@ -382,29 +383,43 @@ export async function joinSplitClaim(splitClaimId: string, wishlistId: string) {
       // Get wishlist details
       const { data: wishlist } = await supabase
         .from("wishlists")
-        .select("id, name")
+        .select("id, name, user_id")
         .eq("id", wishlistId)
         .single();
 
       // Get joiner profile
       const { data: joinerProfile } = await supabase
         .from("profiles")
-        .select("display_name")
+        .select("display_name, avatar_url")
         .eq("id", user.id)
         .single();
 
+      // Get current participant count
+      const { count: currentParticipants } = await supabase
+        .from("split_claim_participants")
+        .select("*", { count: "exact", head: true })
+        .eq("split_claim_id", splitClaimId);
+
       if (item && wishlist) {
-        await notifySplitParticipants(splitClaimId, user.id, "split_joined", {
-          split_claim_id: splitClaimId,
-          item_id: item.id,
-          item_title: item.title,
-          item_image_url: item.image_url,
-          wishlist_id: wishlist.id,
-          wishlist_name: wishlist.name,
-          joiner_id: user.id,
-          joiner_name: joinerProfile?.display_name || "Someone",
-          joined_at: new Date().toISOString(),
-        });
+        await notifySplitParticipants(
+          splitClaimId,
+          "split_joined",
+          {
+            split_claim_id: splitClaimId,
+            item_id: item.id,
+            item_title: item.title,
+            item_image_url: item.image_url,
+            wishlist_id: wishlist.id,
+            wishlist_name: wishlist.name,
+            wishlist_owner_id: wishlist.user_id,
+            joiner_id: user.id,
+            joiner_name: joinerProfile?.display_name || "Someone",
+            joiner_avatar_url: joinerProfile?.avatar_url,
+            current_participants: currentParticipants || 1,
+            target_participants: splitClaim.target_participants,
+          },
+          user.id // Exclude the joiner from being notified
+        );
       }
     } catch (notifError) {
       console.error("Failed to send split joined notification:", notifError);
@@ -429,7 +444,7 @@ export async function leaveSplitClaim(splitClaimId: string) {
     // Check if split claim exists and is pending
     const { data: splitClaim } = await supabase
       .from("split_claims")
-      .select("id, item_id, status, claim_status, initiated_by")
+      .select("id, item_id, status, claim_status, initiated_by, target_participants")
       .eq("id", splitClaimId)
       .maybeSingle();
 
@@ -470,14 +485,14 @@ export async function leaveSplitClaim(splitClaimId: string) {
         // Get item details
         const { data: item } = await supabase
           .from("wishlist_items")
-          .select("id, title, image_url, wishlist_id")
+          .select("id, title, wishlist_id")
           .eq("id", splitClaim.item_id)
           .single();
 
         // Get wishlist details
         const { data: wishlist } = await supabase
           .from("wishlists")
-          .select("id, name")
+          .select("id, name, user_id")
           .eq("id", item?.wishlist_id || "")
           .single();
 
@@ -491,19 +506,18 @@ export async function leaveSplitClaim(splitClaimId: string) {
         if (item && wishlist) {
           await notifySplitParticipants(
             splitClaimId,
-            user.id,
             "split_cancelled",
             {
               split_claim_id: splitClaimId,
               item_id: item.id,
               item_title: item.title,
-              item_image_url: item.image_url,
               wishlist_id: wishlist.id,
               wishlist_name: wishlist.name,
+              wishlist_owner_id: wishlist.user_id,
               canceller_id: user.id,
               canceller_name: initiatorProfile?.display_name || "Someone",
-              cancelled_at: new Date().toISOString(),
-            }
+            },
+            user.id // Exclude the canceller from being notified
           );
         }
       } catch (notifError) {
@@ -537,14 +551,14 @@ export async function leaveSplitClaim(splitClaimId: string) {
       // Get item details
       const { data: item } = await supabase
         .from("wishlist_items")
-        .select("id, title, image_url, wishlist_id")
+        .select("id, title, wishlist_id")
         .eq("id", splitClaim.item_id)
         .single();
 
       // Get wishlist details
       const { data: wishlist } = await supabase
         .from("wishlists")
-        .select("id, name")
+        .select("id, name, user_id")
         .eq("id", item?.wishlist_id || "")
         .single();
 
@@ -555,18 +569,30 @@ export async function leaveSplitClaim(splitClaimId: string) {
         .eq("id", user.id)
         .single();
 
+      // Get remaining participant count (after user left)
+      const { count: remainingParticipants } = await supabase
+        .from("split_claim_participants")
+        .select("*", { count: "exact", head: true })
+        .eq("split_claim_id", splitClaimId);
+
       if (item && wishlist) {
-        await notifySplitParticipants(splitClaimId, user.id, "split_left", {
-          split_claim_id: splitClaimId,
-          item_id: item.id,
-          item_title: item.title,
-          item_image_url: item.image_url,
-          wishlist_id: wishlist.id,
-          wishlist_name: wishlist.name,
-          leaver_id: user.id,
-          leaver_name: leaverProfile?.display_name || "Someone",
-          left_at: new Date().toISOString(),
-        });
+        await notifySplitParticipants(
+          splitClaimId,
+          "split_left",
+          {
+            split_claim_id: splitClaimId,
+            item_id: item.id,
+            item_title: item.title,
+            wishlist_id: wishlist.id,
+            wishlist_name: wishlist.name,
+            wishlist_owner_id: wishlist.user_id,
+            leaver_id: user.id,
+            leaver_name: leaverProfile?.display_name || "Someone",
+            remaining_participants: remainingParticipants || 0,
+            target_participants: splitClaim.target_participants,
+          },
+          user.id // Exclude the leaver from being notified
+        );
       }
     } catch (notifError) {
       console.error("Failed to send split left notification:", notifError);
@@ -591,7 +617,7 @@ export async function confirmSplitClaim(splitClaimId: string) {
     // Check if user is initiator and split is pending
     const { data: splitClaim } = await supabase
       .from("split_claims")
-      .select("id, status, initiated_by, target_participants")
+      .select("id, item_id, status, initiated_by, target_participants")
       .eq("id", splitClaimId)
       .maybeSingle();
 
@@ -644,20 +670,39 @@ export async function confirmSplitClaim(splitClaimId: string) {
       // Get wishlist details
       const { data: wishlist } = await supabase
         .from("wishlists")
-        .select("id, name")
+        .select("id, name, user_id")
         .eq("id", item?.wishlist_id || "")
         .single();
 
+      // Get all participants with profiles
+      const { data: participantsData } = await supabase
+        .from("split_claim_participants")
+        .select("user_id, profiles!inner(display_name, avatar_url)")
+        .eq("split_claim_id", splitClaimId);
+
+      const participants = participantsData?.map((p: any) => ({
+        user_id: p.user_id,
+        display_name: p.profiles.display_name || "Unknown",
+        avatar_url: p.profiles.avatar_url,
+      })) || [];
+
       if (item && wishlist) {
-        await notifySplitParticipants(splitClaimId, user.id, "split_confirmed", {
-          split_claim_id: splitClaimId,
-          item_id: item.id,
-          item_title: item.title,
-          item_image_url: item.image_url,
-          wishlist_id: wishlist.id,
-          wishlist_name: wishlist.name,
-          confirmed_at: new Date().toISOString(),
-        });
+        await notifySplitParticipants(
+          splitClaimId,
+          "split_confirmed",
+          {
+            split_claim_id: splitClaimId,
+            item_id: item.id,
+            item_title: item.title,
+            item_image_url: item.image_url,
+            wishlist_id: wishlist.id,
+            wishlist_name: wishlist.name,
+            wishlist_owner_id: wishlist.user_id,
+            participants,
+            target_participants: splitClaim.target_participants,
+          },
+          user.id // Exclude the confirmer from being notified
+        );
       }
     } catch (notifError) {
       console.error("Failed to send split confirmed notification:", notifError);

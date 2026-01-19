@@ -426,7 +426,8 @@ export function parseMetadata<T extends NotificationType>(
   metadata: unknown
 ): Extract<NotificationData, { type: T }>["metadata"] {
   const schema = getMetadataSchema(type);
-  return schema.parse(metadata) as Extract<NotificationData, { type: T }>["metadata"];
+  // Type assertion needed due to TypeScript limitation with discriminated unions
+  return schema.parse(metadata) as any;
 }
 
 /**

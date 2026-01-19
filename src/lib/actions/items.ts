@@ -556,7 +556,7 @@ export async function markItemReceived(
                   wishlist_name: wishlistDetails.name,
                   recipient_id: user.id,
                   recipient_name: recipientProfile?.display_name || "Someone",
-                  claim_type: claim.claim_type,
+                  claim_type: claim.claim_type as "solo" | "split",
                   claim_id: claim.claim_id,
                   marked_at: new Date().toISOString(),
                 })

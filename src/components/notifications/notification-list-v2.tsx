@@ -11,12 +11,12 @@ interface NotificationListProps {
   notifications: ParsedNotification[];
   isLoading: boolean;
   view: "inbox" | "archived";
-  onMarkAsRead: (id: string) => Promise<{ success?: boolean; error?: string }>;
-  onMarkAsUnread?: (id: string) => Promise<{ success?: boolean; error?: string }>;
-  onMarkAllAsRead?: () => Promise<{ success?: boolean; error?: string }>;
-  onArchive?: (id: string) => Promise<{ success?: boolean; error?: string }>;
-  onArchiveAllRead?: () => Promise<{ success?: boolean; error?: string }>;
-  onUnarchive?: (id: string) => Promise<{ success?: boolean; error?: string }>;
+  onMarkAsRead: (id: string) => Promise<void>;
+  onMarkAsUnread?: (id: string) => Promise<void>;
+  onMarkAllAsRead?: () => Promise<void>;
+  onArchive?: (id: string) => Promise<void>;
+  onArchiveAllRead?: () => Promise<void>;
+  onUnarchive?: (id: string) => Promise<void>;
 }
 
 export function NotificationListV2({

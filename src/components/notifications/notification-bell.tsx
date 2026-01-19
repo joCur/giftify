@@ -54,6 +54,31 @@ export function NotificationBell() {
     }
   };
 
+  // Wrapper functions that discard return values to match expected void type
+  const handleMarkAsRead = async (id: string) => {
+    await markAsRead(id);
+  };
+
+  const handleMarkAsUnread = async (id: string) => {
+    await markAsUnread(id);
+  };
+
+  const handleMarkAllAsRead = async () => {
+    await markAllAsRead();
+  };
+
+  const handleArchive = async (id: string) => {
+    await archiveNotification(id);
+  };
+
+  const handleArchiveAllRead = async () => {
+    await archiveAllRead();
+  };
+
+  const handleUnarchive = async (id: string) => {
+    await unarchiveNotification(id);
+  };
+
   // Render a placeholder button during SSR to prevent hydration mismatch
   if (!mounted) {
     return (
@@ -108,11 +133,11 @@ export function NotificationBell() {
               notifications={notifications}
               isLoading={isLoading}
               view="inbox"
-              onMarkAsRead={markAsRead}
-              onMarkAsUnread={markAsUnread}
-              onMarkAllAsRead={markAllAsRead}
-              onArchive={archiveNotification}
-              onArchiveAllRead={archiveAllRead}
+              onMarkAsRead={handleMarkAsRead}
+              onMarkAsUnread={handleMarkAsUnread}
+              onMarkAllAsRead={handleMarkAllAsRead}
+              onArchive={handleArchive}
+              onArchiveAllRead={handleArchiveAllRead}
             />
           </TabsContent>
 
@@ -121,8 +146,8 @@ export function NotificationBell() {
               notifications={archivedNotifications}
               isLoading={isArchivedLoading}
               view="archived"
-              onMarkAsRead={markAsRead}
-              onUnarchive={unarchiveNotification}
+              onMarkAsRead={handleMarkAsRead}
+              onUnarchive={handleUnarchive}
             />
           </TabsContent>
         </Tabs>

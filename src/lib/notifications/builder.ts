@@ -31,8 +31,10 @@ export class NotificationBuilder<T extends NotificationType = NotificationType> 
   private actionUrl?: string;
 
   constructor(type: T, metadata: Extract<NotificationData, { type: T }>["metadata"]) {
-    // Validate metadata
-    this.metadata = validateMetadata(type, metadata);
+    // Metadata is already type-checked by TypeScript, just validate with Zod at runtime
+    validateMetadata(type, metadata);
+    // Type assertion needed due to TypeScript limitation with discriminated unions
+    this.metadata = metadata as any;
     this.type = type;
   }
 
@@ -111,8 +113,8 @@ export class NotificationBuilder<T extends NotificationType = NotificationType> 
         p_user_ids: this.userIds,
         p_metadata: this.metadata as any,
         p_action_url: actionUrl,
-        p_dedup_key: this.dedupKey || null,
-        p_group_key: this.groupKey || null,
+        p_dedup_key: this.dedupKey || undefined,
+        p_group_key: this.groupKey || undefined,
         p_priority: priority,
       });
 
@@ -121,7 +123,9 @@ export class NotificationBuilder<T extends NotificationType = NotificationType> 
         return { success: false, count: 0, error: error.message };
       }
 
-      return { success: true, count: data || 0 };
+      // RPC function returns the number of notifications created
+      const count = typeof data === 'number' ? data : 0;
+      return { success: true, count };
     } catch (error) {
       console.error("Notification builder error:", error);
       return {
@@ -156,7 +160,7 @@ export function createNotification<T extends NotificationType>(
   type: T,
   metadata: Extract<NotificationData, { type: T }>["metadata"]
 ): NotificationBuilder<T> {
-  return new NotificationBuilder(type, metadata);
+  return new NotificationBuilder(type, metadata as any);
 }
 
 // ============================================
@@ -222,7 +226,7 @@ export async function notifySplitParticipants(
   // Get participant IDs using helper function
   const { data: participantIds, error } = await supabase.rpc("get_split_participant_ids", {
     p_split_claim_id: splitClaimId,
-    p_exclude_user_id: excludeUserId || null,
+    p_exclude_user_id: excludeUserId || undefined,
   });
 
   if (error || !participantIds || participantIds.length === 0) {

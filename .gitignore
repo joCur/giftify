@@ -46,3 +46,6 @@ public/workbox-*.js
 public/sw.js.map
 public/workbox-*.js.map
 .claude/settings.local.json
+
+# Auto Claude data directory
+.auto-claude/

@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireAuth } from "./helpers";
 import { revalidatePath } from "next/cache";
+import { createNotification } from "@/lib/notifications/builder";
 
 /**
  * Get all collaborators for a wishlist
@@ -101,7 +102,7 @@ export async function addCollaborator(wishlistId: string, friendId: string) {
       return { error: "This friend is already a collaborator" };
     }
 
-    // Add collaborator (notification is handled by database trigger)
+    // Add collaborator
     const { error: insertError } = await supabase
       .from("wishlist_collaborators")
       .insert({
@@ -113,6 +114,37 @@ export async function addCollaborator(wishlistId: string, friendId: string) {
     if (insertError) {
       console.error("Error adding collaborator:", insertError);
       return { error: "Failed to add collaborator" };
+    }
+
+    // Get inviter profile
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("display_name")
+      .eq("id", user.id)
+      .single();
+
+    // Get primary owner profile (might be different from inviter)
+    const { data: owner } = await supabase
+      .from("profiles")
+      .select("display_name")
+      .eq("id", wishlist.user_id)
+      .single();
+
+    // Create V2 notification for invited user
+    try {
+      await createNotification("collaborator_invited", {
+        wishlist_id: wishlistId,
+        wishlist_name: wishlist.name,
+        primary_owner_id: wishlist.user_id,
+        primary_owner_name: owner?.display_name || "Someone",
+        inviter_id: user.id,
+        inviter_name: profile?.display_name || "Someone",
+        invited_user_id: friendId,
+      })
+        .to(friendId)
+        .send();
+    } catch (notifError) {
+      console.error("Failed to send collaborator invited notification:", notifError);
     }
 
     revalidatePath(`/wishlists/${wishlistId}`);
@@ -158,7 +190,7 @@ export async function removeCollaborator(
       return { error: "Cannot remove collaborators from archived wishlist" };
     }
 
-    // Delete collaborator (notification is handled by database trigger for self-removal)
+    // Delete collaborator
     const { error: deleteError } = await supabase
       .from("wishlist_collaborators")
       .delete()
@@ -168,6 +200,37 @@ export async function removeCollaborator(
     if (deleteError) {
       console.error("Error removing collaborator:", deleteError);
       return { error: "Failed to remove collaborator" };
+    }
+
+    // Create V2 notification for self-removal (notify primary owner)
+    if (isSelf) {
+      try {
+        // Get wishlist details
+        const { data: fullWishlist } = await supabase
+          .from("wishlists")
+          .select("name")
+          .eq("id", wishlistId)
+          .single();
+
+        // Get leaver profile
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("display_name")
+          .eq("id", user.id)
+          .single();
+
+        await createNotification("collaborator_left", {
+          wishlist_id: wishlistId,
+          wishlist_name: fullWishlist?.name || "a wishlist",
+          primary_owner_id: wishlist.user_id,
+          leaver_id: user.id,
+          leaver_name: profile?.display_name || "Someone",
+        })
+          .to(wishlist.user_id)
+          .send();
+      } catch (notifError) {
+        console.error("Failed to send collaborator left notification:", notifError);
+      }
     }
 
     revalidatePath(`/wishlists/${wishlistId}`);

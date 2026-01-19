@@ -260,6 +260,39 @@ export type Database = {
           },
         ]
       }
+      notification_categories: {
+        Row: {
+          created_at: string
+          default_channels: Json
+          default_enabled: boolean
+          description: string | null
+          icon: string | null
+          id: string
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          default_channels?: Json
+          default_enabled?: boolean
+          description?: string | null
+          icon?: string | null
+          id: string
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          default_channels?: Json
+          default_enabled?: boolean
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
       notification_preferences: {
         Row: {
           birthday_reminder_days: number
@@ -285,6 +318,77 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: true
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_preferences_v2: {
+        Row: {
+          category_id: string
+          channels: Json
+          created_at: string
+          enabled: boolean
+          id: string
+          settings: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category_id: string
+          channels?: Json
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          settings?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category_id?: string
+          channels?: Json
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          settings?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_preferences_v2_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "notification_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_preferences_v2_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_type_categories: {
+        Row: {
+          category_id: string
+          type: Database["public"]["Enums"]["notification_type_v2"]
+        }
+        Insert: {
+          category_id: string
+          type: Database["public"]["Enums"]["notification_type_v2"]
+        }
+        Update: {
+          category_id?: string
+          type?: Database["public"]["Enums"]["notification_type_v2"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_type_categories_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "notification_categories"
             referencedColumns: ["id"]
           },
         ]
@@ -393,6 +497,72 @@ export type Database = {
             columns: ["wishlist_id"]
             isOneToOne: false
             referencedRelation: "wishlists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications_v2: {
+        Row: {
+          action_completed_at: string | null
+          action_url: string | null
+          category_id: string
+          created_at: string
+          dedup_key: string | null
+          expires_at: string | null
+          group_key: string | null
+          id: string
+          metadata: Json
+          priority: number | null
+          read_at: string | null
+          status: Database["public"]["Enums"]["notification_status_v2"]
+          type: Database["public"]["Enums"]["notification_type_v2"]
+          user_id: string
+        }
+        Insert: {
+          action_completed_at?: string | null
+          action_url?: string | null
+          category_id: string
+          created_at?: string
+          dedup_key?: string | null
+          expires_at?: string | null
+          group_key?: string | null
+          id?: string
+          metadata: Json
+          priority?: number | null
+          read_at?: string | null
+          status?: Database["public"]["Enums"]["notification_status_v2"]
+          type: Database["public"]["Enums"]["notification_type_v2"]
+          user_id: string
+        }
+        Update: {
+          action_completed_at?: string | null
+          action_url?: string | null
+          category_id?: string
+          created_at?: string
+          dedup_key?: string | null
+          expires_at?: string | null
+          group_key?: string | null
+          id?: string
+          metadata?: Json
+          priority?: number | null
+          read_at?: string | null
+          status?: Database["public"]["Enums"]["notification_status_v2"]
+          type?: Database["public"]["Enums"]["notification_type_v2"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_v2_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "notification_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_v2_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -764,6 +934,18 @@ export type Database = {
         Args: { invite_code: string; new_user_id: string }
         Returns: undefined
       }
+      create_notification_v2: {
+        Args: {
+          p_action_url?: string
+          p_dedup_key?: string
+          p_group_key?: string
+          p_metadata: Json
+          p_priority?: number
+          p_type: Database["public"]["Enums"]["notification_type_v2"]
+          p_user_ids: string[]
+        }
+        Returns: number
+      }
       fulfill_claims_for_item: {
         Args: { p_item_id: string; p_owner_id?: string }
         Returns: {
@@ -772,14 +954,10 @@ export type Database = {
           claimer_ids: string[]
         }[]
       }
-      get_split_claim_item_info: {
-        Args: { p_item_id: string }
-        Returns: {
-          item_title: string
-          wishlist_id: string
-          wishlist_name: string
-          wishlist_owner_id: string
-        }[]
+      get_friend_ids: { Args: { p_user_id: string }; Returns: string[] }
+      get_split_participant_ids: {
+        Args: { p_exclude_user_id?: string; p_split_claim_id: string }
+        Returns: string[]
       }
       is_primary_owner: {
         Args: { target_user_id: string; target_wishlist_id: string }
@@ -801,31 +979,6 @@ export type Database = {
         Args: { target_user_id: string; target_wishlist_id: string }
         Returns: boolean
       }
-      notify_friends: {
-        Args: {
-          p_item_id?: string
-          p_message: string
-          p_title: string
-          p_type: Database["public"]["Enums"]["notification_type"]
-          p_user_id: string
-          p_wishlist_id?: string
-        }
-        Returns: undefined
-      }
-      notify_split_participants: {
-        Args: {
-          p_actor_id: string
-          p_exclude_user_id?: string
-          p_item_id?: string
-          p_message: string
-          p_split_claim_id: string
-          p_title: string
-          p_type: Database["public"]["Enums"]["notification_type"]
-          p_wishlist_id?: string
-        }
-        Returns: undefined
-      }
-      send_birthday_reminders: { Args: never; Returns: undefined }
       validate_invite_code: {
         Args: { invite_code: string }
         Returns: {
@@ -840,6 +993,7 @@ export type Database = {
       claim_status: "active" | "cancelled" | "fulfilled"
       friendship_status: "pending" | "accepted" | "declined"
       notification_status: "inbox" | "archived"
+      notification_status_v2: "inbox" | "archived" | "deleted"
       notification_type:
         | "friend_request_received"
         | "friend_request_accepted"
@@ -859,6 +1013,25 @@ export type Database = {
         | "collaborator_left"
         | "gift_received"
         | "gift_marked_given"
+      notification_type_v2:
+        | "friend_request_received"
+        | "friend_request_accepted"
+        | "birthday_reminder"
+        | "wishlist_created"
+        | "wishlist_archived"
+        | "item_added"
+        | "split_initiated"
+        | "split_joined"
+        | "split_left"
+        | "split_confirmed"
+        | "split_cancelled"
+        | "gift_received"
+        | "gift_marked_given"
+        | "item_flagged_already_owned"
+        | "flag_confirmed"
+        | "flag_denied"
+        | "collaborator_invited"
+        | "collaborator_left"
       ownership_flag_status: "pending" | "confirmed" | "denied"
       split_claim_status: "pending" | "confirmed"
       wishlist_privacy: "public" | "friends" | "private" | "selected_friends"
@@ -995,6 +1168,7 @@ export const Constants = {
       claim_status: ["active", "cancelled", "fulfilled"],
       friendship_status: ["pending", "accepted", "declined"],
       notification_status: ["inbox", "archived"],
+      notification_status_v2: ["inbox", "archived", "deleted"],
       notification_type: [
         "friend_request_received",
         "friend_request_accepted",
@@ -1014,6 +1188,26 @@ export const Constants = {
         "collaborator_left",
         "gift_received",
         "gift_marked_given",
+      ],
+      notification_type_v2: [
+        "friend_request_received",
+        "friend_request_accepted",
+        "birthday_reminder",
+        "wishlist_created",
+        "wishlist_archived",
+        "item_added",
+        "split_initiated",
+        "split_joined",
+        "split_left",
+        "split_confirmed",
+        "split_cancelled",
+        "gift_received",
+        "gift_marked_given",
+        "item_flagged_already_owned",
+        "flag_confirmed",
+        "flag_denied",
+        "collaborator_invited",
+        "collaborator_left",
       ],
       ownership_flag_status: ["pending", "confirmed", "denied"],
       split_claim_status: ["pending", "confirmed"],

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { getSplitClaimForItem } from "./split-claims";
 import { recordClaimHistoryEvent } from "./claim-history";
+import { createNotification } from "@/lib/notifications/builder";
 
 export async function getItemClaims(wishlistId: string) {
   const supabase = await createClient();
@@ -210,7 +211,7 @@ export async function markGiftGiven(
     // Get item and wishlist details
     const { data: item } = await supabase
       .from("wishlist_items")
-      .select("id, title, wishlist_id")
+      .select("id, title, image_url, custom_image_url, wishlist_id")
       .eq("id", claim.item_id)
       .single();
 
@@ -221,7 +222,7 @@ export async function markGiftGiven(
     // Get wishlist owner
     const { data: wishlist } = await supabase
       .from("wishlists")
-      .select("user_id")
+      .select("user_id, name")
       .eq("id", item.wishlist_id)
       .single();
 
@@ -255,16 +256,25 @@ export async function markGiftGiven(
       .eq("id", user.id)
       .single();
 
-    // Notify the owner
-    await supabase.from("notifications").insert({
-      user_id: wishlist.user_id,
-      type: "gift_marked_given",
-      title: "Gift Given!",
-      message: `${gifter?.display_name || "Someone"} marked "${item.title}" as given. Did you receive it?`,
-      actor_id: user.id,
-      wishlist_id: item.wishlist_id,
-      item_id: item.id,
-    });
+    // Create V2 notification
+    try {
+      await createNotification("gift_marked_given", {
+        item_id: item.id,
+        item_title: item.title,
+        item_image_url: item.custom_image_url || item.image_url,
+        wishlist_id: item.wishlist_id,
+        wishlist_name: wishlist.name,
+        giver_id: user.id,
+        giver_name: gifter?.display_name || "Someone",
+        recipient_id: wishlist.user_id,
+        recipient_name: "",
+        marked_at: new Date().toISOString(),
+      })
+        .to(wishlist.user_id)
+        .send();
+    } catch (notifError) {
+      console.error("Failed to send gift marked given notification:", notifError);
+    }
 
     // Record history event
     await recordClaimHistoryEvent("fulfilled", claimId, undefined, {
@@ -308,7 +318,7 @@ export async function markGiftGiven(
     // Get item and wishlist details
     const { data: item } = await supabase
       .from("wishlist_items")
-      .select("id, title, wishlist_id")
+      .select("id, title, image_url, custom_image_url, wishlist_id")
       .eq("id", splitClaim.item_id)
       .single();
 
@@ -319,7 +329,7 @@ export async function markGiftGiven(
     // Get wishlist owner
     const { data: wishlist } = await supabase
       .from("wishlists")
-      .select("user_id")
+      .select("user_id, name")
       .eq("id", item.wishlist_id)
       .single();
 
@@ -353,16 +363,25 @@ export async function markGiftGiven(
       .eq("id", user.id)
       .single();
 
-    // Notify the owner
-    await supabase.from("notifications").insert({
-      user_id: wishlist.user_id,
-      type: "gift_marked_given",
-      title: "Gift Given!",
-      message: `${gifter?.display_name || "Someone"} marked "${item.title}" as given. Did you receive it?`,
-      actor_id: user.id,
-      wishlist_id: item.wishlist_id,
-      item_id: item.id,
-    });
+    // Create V2 notification
+    try {
+      await createNotification("gift_marked_given", {
+        item_id: item.id,
+        item_title: item.title,
+        item_image_url: item.custom_image_url || item.image_url,
+        wishlist_id: item.wishlist_id,
+        wishlist_name: wishlist.name,
+        giver_id: user.id,
+        giver_name: gifter?.display_name || "Someone",
+        recipient_id: wishlist.user_id,
+        recipient_name: "",
+        marked_at: new Date().toISOString(),
+      })
+        .to(wishlist.user_id)
+        .send();
+    } catch (notifError) {
+      console.error("Failed to send gift marked given notification:", notifError);
+    }
 
     // Record history event
     await recordClaimHistoryEvent("fulfilled", undefined, claimId, {

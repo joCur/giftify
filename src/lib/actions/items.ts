@@ -8,6 +8,7 @@ import {
   validateImageFile,
   generateStorageFileName,
 } from "@/lib/utils/storage";
+import { notifyWishlistViewers, createNotification } from "@/lib/notifications/builder";
 
 const BUCKET_NAME = "item-images";
 
@@ -50,7 +51,7 @@ export async function addItem(wishlistId: string, formData: FormData) {
     // Verify user can edit the wishlist (owner or collaborator) and it's not archived
     const { data: wishlist } = await supabase
       .from("wishlists")
-      .select("user_id, is_archived")
+      .select("user_id, is_archived, name, privacy")
       .eq("id", wishlistId)
       .single();
 
@@ -114,7 +115,7 @@ export async function addItem(wishlistId: string, formData: FormData) {
         currency: currency?.trim() || null,
         notes: notes?.trim() || null,
       })
-      .select("id")
+      .select("id, title, image_url, price, currency")
       .single();
 
     if (insertError || !newItem) {
@@ -146,6 +147,43 @@ export async function addItem(wishlistId: string, formData: FormData) {
           .from("wishlist_items")
           .update({ custom_image_url: publicUrl })
           .eq("id", newItem.id);
+      }
+    }
+
+    // Create V2 notification (only for non-private wishlists)
+    if (wishlist.privacy !== "private") {
+      try {
+        // Get user profile for notification metadata
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("display_name, avatar_url")
+          .eq("id", user.id)
+          .single();
+
+        // Get final item data (including custom_image_url if uploaded)
+        const { data: finalItem } = await supabase
+          .from("wishlist_items")
+          .select("image_url, custom_image_url")
+          .eq("id", newItem.id)
+          .single();
+
+        const imageUrl = finalItem?.custom_image_url || finalItem?.image_url || newItem.image_url;
+
+        await notifyWishlistViewers(wishlistId, wishlist.user_id, "item_added", {
+          wishlist_id: wishlistId,
+          wishlist_name: wishlist.name,
+          item_id: newItem.id,
+          item_title: newItem.title,
+          item_image_url: imageUrl,
+          item_price: newItem.price ? parseFloat(newItem.price) : null,
+          item_currency: newItem.currency,
+          owner_id: wishlist.user_id,
+          owner_name: profile?.display_name || "A friend",
+          owner_avatar_url: profile?.avatar_url,
+        });
+      } catch (notifError) {
+        // Log but don't fail the main operation
+        console.error("Failed to send item added notification:", notifError);
       }
     }
 
@@ -479,6 +517,57 @@ export async function markItemReceived(
               fulfilled_by: "owner",
             });
           }
+        }
+
+        // Send V2 gift_received notifications to claimers
+        try {
+          // Get item details for notification
+          const { data: itemDetails } = await supabase
+            .from("wishlist_items")
+            .select("title, image_url, custom_image_url")
+            .eq("id", itemId)
+            .single();
+
+          // Get wishlist details
+          const { data: wishlistDetails } = await supabase
+            .from("wishlists")
+            .select("name")
+            .eq("id", wishlistId)
+            .single();
+
+          // Get recipient (owner) profile
+          const { data: recipientProfile } = await supabase
+            .from("profiles")
+            .select("display_name")
+            .eq("id", user.id)
+            .single();
+
+          if (itemDetails && wishlistDetails) {
+            const itemImageUrl = itemDetails.custom_image_url || itemDetails.image_url;
+
+            for (const claim of fulfilledClaims) {
+              // Send notification to all claimers
+              if (claim.claimer_ids && claim.claimer_ids.length > 0) {
+                await createNotification("gift_received", {
+                  item_id: itemId,
+                  item_title: itemDetails.title,
+                  item_image_url: itemImageUrl,
+                  wishlist_id: wishlistId,
+                  wishlist_name: wishlistDetails.name,
+                  recipient_id: user.id,
+                  recipient_name: recipientProfile?.display_name || "Someone",
+                  claim_type: claim.claim_type as "solo" | "split",
+                  claim_id: claim.claim_id,
+                  marked_at: new Date().toISOString(),
+                })
+                  .to(claim.claimer_ids)
+                  .send();
+              }
+            }
+          }
+        } catch (notifError) {
+          // Log but don't fail the main operation
+          console.error("Failed to send gift received notification:", notifError);
         }
       }
     }

@@ -13,9 +13,9 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { NotificationList } from "./notification-list";
-import { useNotifications } from "@/hooks/use-notifications";
-import { useArchivedNotifications } from "@/hooks/use-archived-notifications";
+import { NotificationListV2 } from "./notification-list-v2";
+import { useNotificationsV2 } from "@/hooks/use-notifications-v2";
+import { useArchivedNotificationsV2 } from "@/hooks/use-archived-notifications-v2";
 
 export function NotificationBell() {
   const [mounted, setMounted] = useState(false);
@@ -30,14 +30,14 @@ export function NotificationBell() {
     archiveNotification,
     archiveAllRead,
     refetch: refetchInbox,
-  } = useNotifications();
+  } = useNotificationsV2();
 
   const {
     notifications: archivedNotifications,
     isLoading: isArchivedLoading,
     unarchiveNotification,
     refetch: refetchArchived,
-  } = useArchivedNotifications();
+  } = useArchivedNotificationsV2();
 
   // Prevent hydration mismatch by only rendering Sheet after mount
   useEffect(() => {
@@ -52,6 +52,31 @@ export function NotificationBell() {
     } else {
       refetchInbox();
     }
+  };
+
+  // Wrapper functions that discard return values to match expected void type
+  const handleMarkAsRead = async (id: string) => {
+    await markAsRead(id);
+  };
+
+  const handleMarkAsUnread = async (id: string) => {
+    await markAsUnread(id);
+  };
+
+  const handleMarkAllAsRead = async () => {
+    await markAllAsRead();
+  };
+
+  const handleArchive = async (id: string) => {
+    await archiveNotification(id);
+  };
+
+  const handleArchiveAllRead = async () => {
+    await archiveAllRead();
+  };
+
+  const handleUnarchive = async (id: string) => {
+    await unarchiveNotification(id);
   };
 
   // Render a placeholder button during SSR to prevent hydration mismatch
@@ -104,25 +129,25 @@ export function NotificationBell() {
           </TabsList>
 
           <TabsContent value="inbox" className="flex-1 mt-3 data-[state=inactive]:hidden">
-            <NotificationList
+            <NotificationListV2
               notifications={notifications}
               isLoading={isLoading}
               view="inbox"
-              onMarkAsRead={markAsRead}
-              onMarkAsUnread={markAsUnread}
-              onMarkAllAsRead={markAllAsRead}
-              onArchive={archiveNotification}
-              onArchiveAllRead={archiveAllRead}
+              onMarkAsRead={handleMarkAsRead}
+              onMarkAsUnread={handleMarkAsUnread}
+              onMarkAllAsRead={handleMarkAllAsRead}
+              onArchive={handleArchive}
+              onArchiveAllRead={handleArchiveAllRead}
             />
           </TabsContent>
 
           <TabsContent value="archived" className="flex-1 mt-3 data-[state=inactive]:hidden">
-            <NotificationList
+            <NotificationListV2
               notifications={archivedNotifications}
               isLoading={isArchivedLoading}
               view="archived"
-              onMarkAsRead={markAsRead}
-              onUnarchive={unarchiveNotification}
+              onMarkAsRead={handleMarkAsRead}
+              onUnarchive={handleUnarchive}
             />
           </TabsContent>
         </Tabs>

@@ -3,12 +3,13 @@
 - price comparison
 - messaging system for a specific gift?
 - voting system on what to get someone?
-- mark as received
 - localization
 - localization of notifications
+- **Remove v2 suffix from notification tables** - After notification system migration is complete and stable, rename `notifications_v2` → `notifications`, `notification_preferences_v2` → `notification_preferences`, drop old tables and enum types. See Phase 5 in NOTIFICATION_SYSTEM_V2.md
 - public wishlist, sharable by link, where anyone can claim an item (maybe)
 - clicking on an item in the claims history opens the wishlist it is/was part of not showing the item, this is problematic beause the item is no longer visible in the list, when it is marked as received.
 - sentry
 - feature-requests/issues
 - the web app does not feel reactive at all on mobile devices as pwa, can we do anything about it? No reactions on button presses, no loading animations between actions, ...
 - notifications on device (pwa)
+- restrict access to unrestricted tables/views

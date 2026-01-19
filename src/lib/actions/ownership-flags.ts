@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireAuth } from "./helpers";
 import { revalidatePath } from "next/cache";
+import { createNotification } from "@/lib/notifications/builder";
 
 /**
  * Flag an item as already owned by the wishlist owner
@@ -70,7 +71,41 @@ export async function flagItemAsOwned(itemId: string, wishlistId: string) {
       return { error: flagError?.message || "Failed to create flag" };
     }
 
-    // Notification is automatically created by database trigger
+    // Get flagger profile
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("display_name, avatar_url")
+      .eq("id", user.id)
+      .single();
+
+    // Get item details for notification
+    const { data: fullItem } = await supabase
+      .from("wishlist_items")
+      .select("title, image_url, custom_image_url")
+      .eq("id", itemId)
+      .single();
+
+    // Create V2 notification for wishlist owner
+    try {
+      await createNotification("item_flagged_already_owned", {
+        flag_id: flag.id,
+        item_id: itemId,
+        item_title: fullItem?.title || item.title,
+        item_image_url: fullItem?.custom_image_url || fullItem?.image_url,
+        wishlist_id: wishlistId,
+        wishlist_name: wishlist.name,
+        wishlist_owner_id: wishlist.user_id,
+        flagger_id: user.id,
+        flagger_name: profile?.display_name || "Someone",
+        flagger_avatar_url: profile?.avatar_url,
+        reason: undefined,
+      })
+        .to(wishlist.user_id)
+        .send();
+    } catch (notifError) {
+      console.error("Failed to send flag notification:", notifError);
+    }
+
     revalidatePath(`/friends`, "layout");
     revalidatePath(`/wishlists/${wishlistId}`);
     return { success: true };
@@ -119,7 +154,35 @@ async function resolveOwnershipFlag(
 
   const { wishlistId } = verification;
 
-  // Update flag status (trigger handles unclaiming and notification)
+  // Get flag details before updating
+  const { data: flagDetails } = await supabase
+    .from("item_ownership_flags")
+    .select(`
+      flagged_by,
+      item:wishlist_items(title, image_url, custom_image_url)
+    `)
+    .eq("id", flagId)
+    .single();
+
+  if (!flagDetails) {
+    return { error: "Flag not found" };
+  }
+
+  // Get owner profile
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("display_name")
+    .eq("id", user.id)
+    .single();
+
+  // Get wishlist name
+  const { data: wishlist } = await supabase
+    .from("wishlists")
+    .select("name")
+    .eq("id", wishlistId)
+    .single();
+
+  // Update flag status
   const { error } = await supabase
     .from("item_ownership_flags")
     .update({
@@ -140,6 +203,26 @@ async function resolveOwnershipFlag(
       .from("wishlist_items")
       .update({ is_purchased: true })
       .eq("id", itemId);
+  }
+
+  // Create V2 notification for flagger
+  try {
+    const notificationType = status === "confirmed" ? "flag_confirmed" : "flag_denied";
+    await createNotification(notificationType, {
+      flag_id: flagId,
+      item_id: itemId,
+      item_title: (flagDetails.item as any)?.title || "an item",
+      wishlist_id: wishlistId,
+      wishlist_name: wishlist?.name || "a wishlist",
+      owner_id: user.id,
+      owner_name: profile?.display_name || "Someone",
+      flagger_id: flagDetails.flagged_by,
+      ...(status === "denied" ? { denial_reason: undefined } : {}),
+    })
+      .to(flagDetails.flagged_by)
+      .send();
+  } catch (notifError) {
+    console.error("Failed to send flag resolution notification:", notifError);
   }
 
   revalidatePath(`/wishlists/${wishlistId}`);

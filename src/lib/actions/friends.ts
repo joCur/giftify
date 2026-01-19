@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireAuth } from "./helpers";
 import { revalidatePath } from "next/cache";
+import { createNotification } from "@/lib/notifications/builder";
 
 // Escape SQL wildcard characters to prevent injection
 function escapeWildcards(str: string): string {
@@ -149,14 +150,41 @@ export async function sendFriendRequest(addresseeId: string) {
       }
     }
 
-    const { error } = await supabase.from("friendships").insert({
-      requester_id: user.id,
-      addressee_id: addresseeId,
-      status: "pending",
-    });
+    // Get user profile for notification metadata
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("display_name, avatar_url")
+      .eq("id", user.id)
+      .single();
+
+    const { data: friendship, error } = await supabase
+      .from("friendships")
+      .insert({
+        requester_id: user.id,
+        addressee_id: addresseeId,
+        status: "pending",
+      })
+      .select()
+      .single();
 
     if (error) {
       return { error: error.message };
+    }
+
+    // Create V2 notification
+    try {
+      await createNotification("friend_request_received", {
+        friendship_id: friendship.id,
+        requester_id: user.id,
+        requester_name: profile?.display_name || "Someone",
+        requester_avatar_url: profile?.avatar_url,
+      })
+        .to(addresseeId)
+        .withDedupKey(`friend_request_${friendship.id}`)
+        .send();
+    } catch (notifError) {
+      // Log but don't fail the main operation
+      console.error("Failed to send friend request notification:", notifError);
     }
 
     revalidatePath("/friends");
@@ -170,10 +198,10 @@ export async function acceptFriendRequest(friendshipId: string) {
   try {
     const { supabase, user } = await requireAuth();
 
-    // Verify user is the addressee
+    // Verify user is the addressee and get requester ID
     const { data: friendship } = await supabase
       .from("friendships")
-      .select("addressee_id")
+      .select("addressee_id, requester_id")
       .eq("id", friendshipId)
       .eq("status", "pending")
       .single();
@@ -182,6 +210,13 @@ export async function acceptFriendRequest(friendshipId: string) {
       return { error: "Not authorized" };
     }
 
+    // Get accepter profile for notification metadata
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("display_name, avatar_url")
+      .eq("id", user.id)
+      .single();
+
     const { error } = await supabase
       .from("friendships")
       .update({ status: "accepted" })
@@ -189,6 +224,22 @@ export async function acceptFriendRequest(friendshipId: string) {
 
     if (error) {
       return { error: error.message };
+    }
+
+    // Create V2 notification for the requester
+    try {
+      await createNotification("friend_request_accepted", {
+        friendship_id: friendshipId,
+        accepter_id: user.id,
+        accepter_name: profile?.display_name || "Someone",
+        accepter_avatar_url: profile?.avatar_url,
+      })
+        .to(friendship.requester_id)
+        .withDedupKey(`friend_accepted_${friendshipId}`)
+        .send();
+    } catch (notifError) {
+      // Log but don't fail the main operation
+      console.error("Failed to send friend accepted notification:", notifError);
     }
 
     revalidatePath("/friends");

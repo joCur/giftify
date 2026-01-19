@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireAuth } from "./helpers";
 import { revalidatePath } from "next/cache";
 import type { WishlistPrivacy } from "@/lib/supabase/types.custom";
+import { notifyFriends } from "@/lib/notifications/builder";
 
 /**
  * Helper: Verify user owns the wishlist
@@ -144,6 +145,13 @@ export async function createWishlist(formData: FormData) {
       return { error: "Invalid privacy setting" };
     }
 
+    // Get user profile for notification metadata
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("display_name, avatar_url")
+      .eq("id", user.id)
+      .single();
+
     const { data, error } = await supabase
       .from("wishlists")
       .insert({
@@ -157,6 +165,23 @@ export async function createWishlist(formData: FormData) {
 
     if (error) {
       return { error: error.message };
+    }
+
+    // Create V2 notification (only for non-private wishlists)
+    if (privacy !== "private") {
+      try {
+        await notifyFriends(user.id, "wishlist_created", {
+          wishlist_id: data.id,
+          wishlist_name: data.name,
+          owner_id: user.id,
+          owner_name: profile?.display_name || "A friend",
+          owner_avatar_url: profile?.avatar_url,
+          privacy: data.privacy,
+        });
+      } catch (notifError) {
+        // Log but don't fail the main operation
+        console.error("Failed to send wishlist created notification:", notifError);
+      }
     }
 
     revalidatePath("/dashboard");
@@ -252,7 +277,7 @@ export async function archiveWishlist(id: string) {
     const { supabase, user } = await requireAuth();
 
     // Verify ownership and get wishlist details
-    const verification = await verifyWishlistOwnership(supabase, user.id, id, "name, is_archived");
+    const verification = await verifyWishlistOwnership(supabase, user.id, id, "name, is_archived, privacy");
     if ("error" in verification) {
       return verification;
     }
@@ -263,8 +288,14 @@ export async function archiveWishlist(id: string) {
       return { error: "Wishlist is already archived" };
     }
 
+    // Get user profile for notification metadata
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("display_name, avatar_url")
+      .eq("id", user.id)
+      .single();
+
     // Update wishlist to archived
-    // Database trigger will handle claim deletion and notifications
     const { error: updateError } = await supabase
       .from("wishlists")
       .update({ is_archived: true })
@@ -273,6 +304,22 @@ export async function archiveWishlist(id: string) {
     if (updateError) {
       console.error("Error archiving wishlist:", updateError);
       return { error: "Failed to archive wishlist" };
+    }
+
+    // Create V2 notification (only for non-private wishlists)
+    if (wishlist.privacy !== "private") {
+      try {
+        await notifyFriends(user.id, "wishlist_archived", {
+          wishlist_id: id,
+          wishlist_name: wishlist.name,
+          owner_id: user.id,
+          owner_name: profile?.display_name || "A friend",
+          owner_avatar_url: profile?.avatar_url,
+        });
+      } catch (notifError) {
+        // Log but don't fail the main operation
+        console.error("Failed to send wishlist archived notification:", notifError);
+      }
     }
 
     // Revalidate relevant paths

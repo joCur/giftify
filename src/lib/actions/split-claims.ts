@@ -7,6 +7,7 @@ import { recordClaimHistoryEvent } from "./claim-history";
 import type { SplitClaimWithParticipants } from "@/lib/supabase/types.custom";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types.custom";
+import { createNotification } from "@/lib/notifications/builder";
 
 // Constants
 const MIN_SPLIT_PARTICIPANTS = 2;

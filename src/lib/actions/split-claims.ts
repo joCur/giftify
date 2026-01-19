@@ -7,7 +7,7 @@ import { recordClaimHistoryEvent } from "./claim-history";
 import type { SplitClaimWithParticipants } from "@/lib/supabase/types.custom";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types.custom";
-import { createNotification } from "@/lib/notifications/builder";
+import { notifyWishlistViewers } from "@/lib/notifications/builder";
 
 // Constants
 const MIN_SPLIT_PARTICIPANTS = 2;
@@ -231,6 +231,66 @@ export async function initiateSplitClaim(
       wishlist_id: wishlistId,
       is_initiator: true,
     });
+
+    // Send split_initiated notification to eligible friends
+    try {
+      // Get item details
+      const { data: item } = await supabase
+        .from("wishlist_items")
+        .select("id, title, image_url, price, currency")
+        .eq("id", itemId)
+        .single();
+
+      // Get wishlist details
+      const { data: wishlist } = await supabase
+        .from("wishlists")
+        .select("id, name, user_id")
+        .eq("id", wishlistId)
+        .single();
+
+      // Get wishlist owner profile
+      const { data: owner } = await supabase
+        .from("profiles")
+        .select("display_name")
+        .eq("id", wishlist?.user_id || "")
+        .single();
+
+      // Get initiator profile
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("display_name, avatar_url")
+        .eq("id", user.id)
+        .single();
+
+      if (item && wishlist) {
+        // Calculate cost per person if price exists
+        const costPerPerson =
+          item.price && targetParticipants > 0
+            ? Math.ceil(item.price / targetParticipants)
+            : undefined;
+
+        // Notify friends who can view this wishlist (respects privacy)
+        await notifyWishlistViewers(wishlistId, wishlist.user_id, "split_initiated", {
+          split_claim_id: splitClaim.id,
+          item_id: item.id,
+          item_title: item.title,
+          item_image_url: item.image_url,
+          item_price: item.price,
+          item_currency: item.currency,
+          wishlist_id: wishlist.id,
+          wishlist_name: wishlist.name,
+          wishlist_owner_id: wishlist.user_id,
+          wishlist_owner_name: owner?.display_name || "Someone",
+          initiator_id: user.id,
+          initiator_name: profile?.display_name || "Someone",
+          initiator_avatar_url: profile?.avatar_url,
+          target_participants: targetParticipants,
+          cost_per_person: costPerPerson,
+        });
+      }
+    } catch (notifError) {
+      console.error("Failed to send split initiated notification:", notifError);
+    }
 
     revalidatePath(`/friends`);
     revalidatePath(`/dashboard`);

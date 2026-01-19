@@ -8,7 +8,7 @@ import {
   validateImageFile,
   generateStorageFileName,
 } from "@/lib/utils/storage";
-import { notifyWishlistViewers } from "@/lib/notifications/builder";
+import { notifyWishlistViewers, createNotification } from "@/lib/notifications/builder";
 
 const BUCKET_NAME = "item-images";
 
@@ -517,6 +517,57 @@ export async function markItemReceived(
               fulfilled_by: "owner",
             });
           }
+        }
+
+        // Send V2 gift_received notifications to claimers
+        try {
+          // Get item details for notification
+          const { data: itemDetails } = await supabase
+            .from("wishlist_items")
+            .select("title, image_url, custom_image_url")
+            .eq("id", itemId)
+            .single();
+
+          // Get wishlist details
+          const { data: wishlistDetails } = await supabase
+            .from("wishlists")
+            .select("name")
+            .eq("id", wishlistId)
+            .single();
+
+          // Get recipient (owner) profile
+          const { data: recipientProfile } = await supabase
+            .from("profiles")
+            .select("display_name")
+            .eq("id", user.id)
+            .single();
+
+          if (itemDetails && wishlistDetails) {
+            const itemImageUrl = itemDetails.custom_image_url || itemDetails.image_url;
+
+            for (const claim of fulfilledClaims) {
+              // Send notification to all claimers
+              if (claim.claimer_ids && claim.claimer_ids.length > 0) {
+                await createNotification("gift_received", {
+                  item_id: itemId,
+                  item_title: itemDetails.title,
+                  item_image_url: itemImageUrl,
+                  wishlist_id: wishlistId,
+                  wishlist_name: wishlistDetails.name,
+                  recipient_id: user.id,
+                  recipient_name: recipientProfile?.display_name || "Someone",
+                  claim_type: claim.claim_type,
+                  claim_id: claim.claim_id,
+                  marked_at: new Date().toISOString(),
+                })
+                  .to(claim.claimer_ids)
+                  .send();
+              }
+            }
+          }
+        } catch (notifError) {
+          // Log but don't fail the main operation
+          console.error("Failed to send gift received notification:", notifError);
         }
       }
     }
